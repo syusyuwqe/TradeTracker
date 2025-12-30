@@ -1,0 +1,804 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  ReferenceLine
+} from 'recharts';
+import { LayoutDashboard, Upload, RefreshCw, TrendingUp, TrendingDown, DollarSign, PieChart as PieChartIcon, AlertCircle, FileText, ArrowRightLeft, Search, Filter, ExternalLink, ShieldCheck, Users, Briefcase, Info, ArrowUpDown, Wallet, PiggyBank, HelpCircle, X, List, Table, Calculator } from 'lucide-react';
+
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1'];
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [sheetUrl, setSheetUrl] = useState('https://docs.google.com/spreadsheets/d/e/2PACX-1vTZITzZ-p9NUFBGXrFA_0hjrjhpGnQJob9w8qFvwlrR-jAggJcsHji2CO9WS29R_-E3F9BKB_S9y5uz/pub?gid=0&single=true&output=csv');
+  const [rawData, setRawData] = useState('');
+  
+  const [transactions, setTransactions] = useState([]);
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [useProxy, setUseProxy] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // 交易明細頁面的篩選
+  const [filterType, setFilterType] = useState('all'); 
+  const [subFilterType, setSubFilterType] = useState('all');
+  
+  // 排序狀態
+  const [sortOrder, setSortOrder] = useState('date-desc');
+
+  // 儀表板視圖狀態
+  const [dashboardView, setDashboardView] = useState('total'); 
+  const [selectedPersona, setSelectedPersona] = useState('fu'); 
+
+  // --- 新增：說明彈窗狀態 ---
+  const [helpModal, setHelpModal] = useState(null); // { title: string, content: string } | null
+
+  // CSV 解析函數
+  const parseCSVLine = (text) => {
+    const result = [];
+    let cell = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(cell.trim());
+        cell = '';
+      } else {
+        cell += char;
+      }
+    }
+    result.push(cell.trim());
+    return result;
+  };
+
+  const parseCSV = (csvText) => {
+    try {
+      const lines = csvText.trim().split('\n');
+      if (lines.length < 2) {
+        throw new Error('CSV 內容過短或為空，請確認檔案是否已正確發佈。');
+      }
+
+      const parsedTransactions = lines.slice(1).map((line, index) => {
+        const values = parseCSVLine(line);
+        
+        const cleanNumber = (val) => {
+          if (!val) return 0;
+          // 增強：移除 NT, NT$, $, 逗號, 空白
+          const cleanStr = val.toString()
+            .replace(/,/g, '')
+            .replace(/"/g, '')
+            .replace(/\$/g, '')
+            .replace(/NT/g, '') // 移除 NT
+            .replace(/nt/g, '')
+            .trim();
+            
+          if (['#N/A', '#VALUE!', '#ERROR!', 'Loading...', '手動輸入', '-'].includes(cleanStr)) return 0;
+          const num = parseFloat(cleanStr);
+          return isNaN(num) ? 0 : num;
+        };
+
+        if (values.length < 10) return null;
+
+        const valK = cleanNumber(values[10]);
+        const valJ = cleanNumber(values[9]);
+        const totalPaid = valK !== 0 ? valK : valJ;
+        const sideRaw = values[12] ? values[12].replace(/"/g, '').trim() : '';
+        
+        const currentPriceRaw = values[13] ? cleanNumber(values[13]) : 0;
+        const unitDiffRaw = values[14] ? cleanNumber(values[14]) : 0;
+        const totalDiffRaw = values[15] ? cleanNumber(values[15]) : 0;
+
+        return {
+          id: values[0]?.replace(/"/g, '') || `row-${index}`,
+          symbol: values[1]?.replace(/"/g, '').trim() || '',
+          date: values[2]?.replace(/"/g, '').trim(),
+          shares: cleanNumber(values[3]),
+          price: cleanNumber(values[4]),
+          totalPaid: totalPaid,
+          note: values[11]?.replace(/"/g, '').trim() || '', 
+          side: sideRaw,
+          sheetCurrentPrice: currentPriceRaw,
+          unitDiff: unitDiffRaw,
+          totalDiff: totalDiffRaw
+        };
+      }).filter(item => {
+        return item !== null && (item.symbol !== '' || item.side !== '' || item.totalPaid !== 0);
+      });
+
+      if (parsedTransactions.length === 0) {
+        throw new Error('解析成功但無有效交易資料，請檢查欄位格式是否跑掉。');
+      }
+
+      setTransactions(parsedTransactions);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError(`解析錯誤: ${err.message}`);
+    }
+  };
+
+  // --- 計算核心邏輯 ---
+  const { portfolio, summary } = useMemo(() => {
+    const holdings = {};
+    const priceMap = {}; 
+    
+    // 現金流計算變數
+    let totalDeposits = 0;
+    let cashBalance = 0;
+
+    // 1. 根據視圖過濾交易
+    let targetTransactions = transactions;
+    
+    if (dashboardView === 'personal') {
+      targetTransactions = transactions.filter(t => {
+        const note = (t.note || '').toLowerCase();
+        if (selectedPersona === 'fu' && note.includes('父')) return true;
+        if (selectedPersona === 'xu' && note.includes('旭')) return true;
+        if (selectedPersona === 'gong' && note.includes('公')) return true;
+        return false;
+      });
+    }
+
+    const sortedTx = [...targetTransactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // 2. 遍歷交易計算
+    sortedTx.forEach(tx => {
+      const side = (tx.side || '').toLowerCase();
+      const sym = tx.symbol;
+
+      // --- 現金流與存放金額計算 ---
+      // 帳戶結餘 (Net Cash Flow) = 買入(負) + 賣出(正) + 股息(正) + 存入(正)
+      cashBalance += tx.totalPaid;
+
+      // 存放金額 (只算 Deposit)
+      if (side.includes('存入') || side.includes('入金') || side.includes('deposit')) {
+        totalDeposits += tx.totalPaid;
+      }
+
+      // --- 庫存計算 (只針對有代號的商品) ---
+      if (!sym) return;
+
+      if (tx.sheetCurrentPrice > 0) {
+        priceMap[sym] = tx.sheetCurrentPrice;
+      }
+
+      if (!holdings[sym]) {
+        holdings[sym] = { 
+          symbol: sym, 
+          totalShares: 0, 
+          totalCost: 0, 
+          avgPrice: 0 
+        };
+      }
+
+      const isBuy = side.includes('買') || side.includes('buy');
+      const isSell = side.includes('賣') || side.includes('sell');
+      const isDividend = side.includes('股息') || side.includes('dividend') || side.includes('div');
+      
+      if (isBuy) {
+        const cost = Math.abs(tx.totalPaid);
+        holdings[sym].totalShares += tx.shares;
+        holdings[sym].totalCost += cost;
+      } 
+      else if (isSell) {
+        // 移動平均法：賣出時按庫存比例減少總成本
+        if (holdings[sym].totalShares > 0) {
+          const avgCost = holdings[sym].totalCost / holdings[sym].totalShares;
+          holdings[sym].totalShares -= tx.shares;
+          holdings[sym].totalCost -= (tx.shares * avgCost);
+        }
+      }
+      else if (isDividend) {
+        // 股息：減少總成本 (視為回收成本)
+        const dividendAmount = Math.abs(tx.totalPaid);
+        holdings[sym].totalCost -= dividendAmount;
+      }
+
+      if (holdings[sym].totalShares < 0.0001) holdings[sym].totalShares = 0;
+      if (holdings[sym].totalShares === 0) holdings[sym].totalCost = 0;
+    });
+
+    // --- 特殊邏輯：若為個人歸戶且選取「旭」，強制將現金結餘設為 0 ---
+    if (dashboardView === 'personal' && selectedPersona === 'xu') {
+      cashBalance = 0;
+    }
+
+    const portfolioArray = Object.values(holdings)
+      .filter(h => h.totalShares > 0)
+      .map(h => {
+        const currentPrice = priceMap[h.symbol] || 0;
+        const marketValue = h.totalShares * currentPrice;
+        
+        return {
+          name: h.symbol,
+          ...h,
+          currentPrice,
+          marketValue,
+          gainLoss: marketValue - h.totalCost,
+          gainLossPercent: (h.totalCost > 0 && currentPrice > 0) ? ((marketValue - h.totalCost) / h.totalCost) * 100 : 0
+        };
+      });
+
+    const finalPortfolio = portfolioArray.sort((a, b) => b.marketValue - a.marketValue);
+
+    const totalMarketValue = finalPortfolio.reduce((acc, curr) => acc + curr.marketValue, 0);
+    const totalCost = finalPortfolio.reduce((acc, curr) => acc + curr.totalCost, 0);
+    const totalGainLoss = totalMarketValue - totalCost;
+    const totalReturnRate = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+
+    return {
+      portfolio: finalPortfolio,
+      summary: { 
+        totalMarketValue, 
+        totalCost, 
+        totalGainLoss, 
+        totalReturnRate,
+        totalDeposits, 
+        cashBalance
+      }
+    };
+  }, [transactions, dashboardView, selectedPersona]);
+
+
+  const fetchGoogleSheet = async (url, forceProxy = false) => {
+    const targetUrl = url || sheetUrl;
+    if (!targetUrl) return;
+    setLoading(true);
+    setError(null);
+    
+    let fetchUrl = targetUrl;
+    
+    // 網址標準化
+    if (!targetUrl.includes('output=csv') && !targetUrl.includes('pub?')) {
+      const match = targetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (match) { fetchUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`; }
+    }
+
+    // --- 自動刷新機制 (加入時間戳記防止快取) ---
+    const timestamp = new Date().getTime();
+    const separator = fetchUrl.includes('?') ? '&' : '?';
+    fetchUrl = `${fetchUrl}${separator}_t=${timestamp}`;
+
+    if (forceProxy || useProxy) {
+      // 代理模式下也要確保代理伺服器不讀快取 (雖然 encodeURIComponent 內已有 timestamp，外層也加一個保險)
+      fetchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fetchUrl)}&_t=${timestamp}`;
+    }
+    
+    try {
+      const response = await fetch(fetchUrl);
+      if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
+      const text = await response.text();
+      if (text.trim().startsWith('<!DOCTYPE html>') || text.includes('Google Docs')) {
+         throw new Error('讀取到網頁而非 CSV，請確認發佈設定。');
+      }
+      setRawData(text);
+      parseCSV(text);
+      if (activeTab === 'import') setActiveTab('dashboard');
+    } catch (err) {
+      if (!forceProxy && !useProxy) {
+        setUseProxy(true);
+        fetchGoogleSheet(url, true);
+      } else {
+        setError(err.message + (useProxy ? " (已嘗試救援模式)" : ""));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 網頁開啟時自動執行 (依賴 fetchGoogleSheet 內的 timestamp 機制來確保刷新)
+  useEffect(() => {
+    if (sheetUrl) fetchGoogleSheet(sheetUrl);
+  }, []);
+
+  // 交易列表篩選與排序邏輯
+  const filteredTransactions = useMemo(() => {
+    let filtered = transactions.filter(t => {
+      const matchesSearch = 
+        (t.symbol && t.symbol.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (t.side && t.side.includes(searchTerm)) ||
+        (t.date && t.date.includes(searchTerm)) ||
+        (t.note && t.note.includes(searchTerm));
+
+      if (!matchesSearch) return false;
+
+      const side = (t.side || '').toLowerCase();
+      
+      if (filterType === 'trade') {
+        const isTrade = side.includes('買') || side.includes('賣') || side.includes('buy') || side.includes('sell') || side.includes('股息');
+        if (!isTrade) return false;
+
+        if (subFilterType !== 'all') {
+          const note = t.note || '';
+          if (subFilterType === 'fu' && !note.includes('父')) return false;
+          if (subFilterType === 'xu' && !note.includes('旭')) return false;
+          if (subFilterType === 'gong' && !note.includes('公')) return false;
+        }
+      } else if (filterType === 'deposit') {
+        const isDeposit = side.includes('存入') || side.includes('入金') || side.includes('deposit');
+        if (!isDeposit) return false;
+      }
+
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      if (sortOrder === 'date-desc') {
+        return new Date(b.date) - new Date(a.date);
+      } else if (sortOrder === 'date-asc') {
+        return new Date(a.date) - new Date(b.date);
+      } else if (sortOrder === 'diff-desc') {
+        return b.totalDiff - a.totalDiff;
+      } else if (sortOrder === 'diff-asc') {
+        return a.totalDiff - b.totalDiff;
+      }
+      return 0;
+    });
+
+    return filtered;
+  }, [transactions, searchTerm, filterType, subFilterType, sortOrder]);
+
+
+  const chartDataPie = portfolio.map(i => ({ name: i.symbol, value: i.marketValue }));
+  const chartDataBar = portfolio.map(i => ({ name: i.symbol, value: Math.round(i.gainLoss) }));
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans pb-8 relative">
+      {/* 說明彈窗 (Modal) */}
+      {helpModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setHelpModal(null)}>
+          <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-2xl max-w-sm w-full p-6 relative" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setHelpModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X size={20} /></button>
+            <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+              <Info size={20} className="text-indigo-400" />
+              {helpModal.title}
+            </h3>
+            <div className="space-y-4 text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+              {helpModal.content}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <nav className="border-b border-slate-800 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-2">
+              <div className="bg-indigo-600 p-2 rounded-lg shrink-0">
+                <ArrowRightLeft size={20} className="text-white" />
+              </div>
+              <span className="font-bold text-xl tracking-tight hidden sm:block">TradeTracker</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard size={18}/>}>總覽</NavButton>
+              <NavButton active={activeTab === 'transactions'} onClick={() => setActiveTab('transactions')} icon={<FileText size={18}/>}>明細</NavButton>
+              <NavButton active={activeTab === 'import'} onClick={() => setActiveTab('import')} icon={<Upload size={18}/>}>來源</NavButton>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {error && (
+          <div className="mb-6 p-4 bg-red-900/30 border border-red-800 rounded-lg flex flex-col gap-2 text-red-200 shadow-lg shadow-red-900/20">
+            <div className="flex items-center gap-3">
+              <AlertCircle size={24} className="text-red-400 shrink-0" />
+              <div className="flex-1">
+                <p className="font-bold text-lg">讀取失敗</p>
+                <p className="text-sm opacity-90">{error}</p>
+              </div>
+            </div>
+            <div className="mt-2 pl-9 flex gap-3">
+               <button onClick={() => fetchGoogleSheet(sheetUrl, true)} className="px-4 py-2 bg-red-800 hover:bg-red-700 rounded text-sm font-medium transition-colors flex items-center gap-2"><ShieldCheck size={16} /> 嘗試救援模式</button>
+               <button onClick={() => setError(null)} className="px-4 py-2 bg-transparent hover:bg-red-900/50 rounded text-sm transition-colors">關閉</button>
+            </div>
+          </div>
+        )}
+
+        {/* --- DASHBOARD VIEW --- */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6">
+            
+            {/* 切換器 */}
+            <div className="flex flex-col items-center justify-center gap-4 py-2">
+              <div className="bg-slate-800 p-1.5 rounded-xl flex shadow-lg border border-slate-700 w-full sm:w-auto">
+                <button 
+                  onClick={() => setDashboardView('total')}
+                  className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${dashboardView === 'total' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <Briefcase size={16} /> 總投資
+                </button>
+                <button 
+                  onClick={() => { setDashboardView('personal'); if(selectedPersona === 'all') setSelectedPersona('fu'); }}
+                  className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${dashboardView === 'personal' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <Users size={16} /> 個人歸戶
+                </button>
+              </div>
+
+              {dashboardView === 'personal' && (
+                <div className="flex gap-2 animate-in fade-in slide-in-from-top-2 duration-300 overflow-x-auto w-full sm:w-auto justify-center pb-1 no-scrollbar">
+                  {['fu', 'xu', 'gong'].map(persona => {
+                    const labels = { fu: '父', xu: '旭', gong: '公' };
+                    return (
+                      <button
+                        key={persona}
+                        onClick={() => setSelectedPersona(persona)}
+                        className={`px-5 py-2 rounded-full text-sm font-medium border transition-all whitespace-nowrap ${
+                          selectedPersona === persona 
+                            ? 'bg-slate-700 text-white border-slate-500 shadow-sm ring-1 ring-slate-500' 
+                            : 'bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-600'
+                        }`}
+                      >
+                        {labels[persona]}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 核心指標卡片 Grid (Mobile: 2x3) - 點擊顯示算法 */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-2">
+              <SummaryCard 
+                title="目前市值" 
+                value={`$${Math.round(summary.totalMarketValue).toLocaleString()}`} 
+                icon={<DollarSign className="text-indigo-400" />} 
+                onHelp={() => setHelpModal({
+                  title: '總市值 (Total Market Value)',
+                  content: '計算方式：\n∑ (每檔股票庫存股數 × 目前現價)\n\n說明：\n這是您目前手上所有持股在市場上的價值總和。若某檔股票現價為 0，則該股票市值不計入。'
+                })}
+              />
+              <SummaryCard 
+                title="總成本 (本金)" 
+                value={`$${Math.round(summary.totalCost).toLocaleString()}`} 
+                icon={<Upload className="text-slate-400" />} 
+                onHelp={() => setHelpModal({
+                  title: '總成本 (Cost Basis)',
+                  content: '計算方式 (移動平均法)：\n1. 買入：成本增加\n2. 賣出：按比例扣除成本 (不論賺賠)\n3. 股息：直接扣除成本 (視為成本回收)\n\n說明：\n這是您「目前手上持股」的剩餘成本。'
+                })}
+              />
+              <SummaryCard 
+                title="未實現損益" 
+                value={`$${Math.round(summary.totalGainLoss).toLocaleString()}`} 
+                icon={<TrendingUp className={summary.totalGainLoss >= 0 ? "text-red-400" : "text-green-400"} />} 
+                textColor={summary.totalGainLoss >= 0 ? "text-red-400" : "text-green-400"} 
+                onHelp={() => setHelpModal({
+                  title: '未實現損益 (Unrealized P&L)',
+                  content: '公式：\n目前市值 - 總成本 (庫存)\n\n說明：\n這是您帳面上目前的獲利或虧損金額。紅色代表獲利，綠色代表虧損。'
+                })}
+              />
+              <SummaryCard 
+                title="報酬率" 
+                value={`${summary.totalReturnRate.toFixed(2)}%`} 
+                icon={<PieChartIcon className="text-purple-400" />} 
+                textColor={summary.totalReturnRate >= 0 ? "text-red-400" : "text-green-400"} 
+                onHelp={() => setHelpModal({
+                  title: '報酬率 (Return Rate)',
+                  content: '公式：\n(未實現損益 ÷ 總成本) × 100%\n\n說明：\n這是您目前持股的投資回報百分比。'
+                })}
+              />
+              
+              <SummaryCard 
+                title="存放金額" 
+                value={`$${Math.round(summary.totalDeposits).toLocaleString()}`} 
+                icon={<PiggyBank className="text-blue-400" />} 
+                onHelp={() => setHelpModal({
+                  title: '存放金額 (Total Deposits)',
+                  content: '計算方式：\n加總所有類別為「存入」、「入金」或「deposit」的交易金額。\n\n說明：\n這是您單純記錄「存入資金」的總額，不包含買賣損益。'
+                })}
+              />
+              <SummaryCard 
+                title="帳戶結餘 (現金)" 
+                value={`$${Math.round(summary.cashBalance).toLocaleString()}`} 
+                icon={<Wallet className="text-green-400" />} 
+                textColor="text-white"
+                onHelp={() => setHelpModal({
+                  title: '帳戶結餘 (Cash Balance)',
+                  content: '計算方式 (淨現金流)：\n總流入 (賣出+股息+存入) - 總流出 (買入+支出)\n\n說明：\n這是您帳戶的現金水位。\n● 若為負數：代表您「買股票花的錢」超過了「賣出+存入」的錢 (資金淨流出)。\n● 若為 0：代表沒有資金進出，或買賣剛好抵銷。'
+                })}
+              />
+            </div>
+
+            {/* --- 新增：庫存成本細項表 (只在個人歸戶視圖 && 有資料時顯示) --- */}
+            {dashboardView === 'personal' && portfolio.length > 0 && (
+              <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+                <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+                   <h3 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
+                     <List size={20} className="text-indigo-400"/>
+                     庫存成本細項
+                     {dashboardView === 'personal' && <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">目前顯示：{selectedPersona === 'fu' ? '父' : selectedPersona === 'xu' ? '旭' : '公'}</span>}
+                   </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="bg-slate-900/50 text-slate-400 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">代號</th>
+                        <th className="px-4 py-3 font-medium text-right">庫存股數</th>
+                        <th className="px-4 py-3 font-medium text-right text-indigo-300 bg-indigo-900/10">總成本 (本金)</th>
+                        <th className="px-4 py-3 font-medium text-right flex items-center justify-end gap-1">目前市值</th>
+                        <th className="px-4 py-3 font-medium text-right">未實現損益</th>
+                        <th className="px-4 py-3 font-medium text-right">報酬率</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700">
+                      {portfolio.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
+                          <td className="px-4 py-3 font-medium text-slate-200">{item.symbol}</td>
+                          <td className="px-4 py-3 text-right text-slate-300">{item.totalShares.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right font-medium text-indigo-300 bg-indigo-900/10">
+                            {Math.round(item.totalCost).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right text-slate-300">{Math.round(item.marketValue).toLocaleString()}</td>
+                          <td className={`px-4 py-3 text-right font-medium ${item.gainLoss >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                            {Math.round(item.gainLoss).toLocaleString()}
+                          </td>
+                          <td className={`px-4 py-3 text-right ${item.gainLossPercent >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                            {item.gainLossPercent.toFixed(2)}%
+                          </td>
+                        </tr>
+                      ))}
+                      {/* 合計行 */}
+                      <tr className="bg-slate-900/80 font-bold text-slate-200 border-t-2 border-slate-600">
+                        <td className="px-4 py-3">總計</td>
+                        <td className="px-4 py-3 text-right">-</td>
+                        <td className="px-4 py-3 text-right text-indigo-300 bg-indigo-900/20">{Math.round(summary.totalCost).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right">{Math.round(summary.totalMarketValue).toLocaleString()}</td>
+                        <td className={`px-4 py-3 text-right ${summary.totalGainLoss >= 0 ? 'text-red-400' : 'text-green-400'}`}>{Math.round(summary.totalGainLoss).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right">-</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                {/* 明確顯示的公式區塊 */}
+                <div className="bg-slate-900/80 p-3 text-xs text-slate-400 border-t border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-slate-600"></span>
+                    <span><strong>目前市值</strong> = Google Sheet 現價 × 庫存股數</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-slate-600"></span>
+                    <span><strong>未實現損益</strong> = 目前市值 - 總成本</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-slate-600"></span>
+                    <span><strong>報酬率</strong> = (未實現損益 ÷ 總成本) × 100%</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {summary.totalMarketValue === 0 && portfolio.length > 0 && !error && (
+              <div className="bg-yellow-500/10 border border-yellow-500/50 p-4 rounded-lg text-yellow-200 text-sm flex items-start gap-3">
+                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-bold">注意</p>
+                  <p>若總市值為 0，請確認 Google Sheet N欄 (現價) 是否已更新。</p>
+                </div>
+              </div>
+            )}
+
+            {/* 圖表 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-slate-800/50 p-4 sm:p-6 rounded-xl border border-slate-700 h-[350px] sm:h-[400px] flex flex-col">
+                <h3 className="text-lg font-semibold text-slate-200 mb-4 text-center">資產配置 (市值)</h3>
+                <div className="flex-1 w-full min-h-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={chartDataPie} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
+                        {chartDataPie.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f1f5f9' }} formatter={(value) => `$${value.toLocaleString()}`} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-slate-800/50 p-4 sm:p-6 rounded-xl border border-slate-700 h-[350px] sm:h-[400px] flex flex-col">
+                <h3 className="text-lg font-semibold text-slate-200 mb-4 text-center">損益分佈</h3>
+                <div className="flex-1 w-full min-h-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    {/* 調整 margin-left 和 YAxis width 以防止文字被遮擋 */}
+                    <BarChart data={chartDataBar} layout="vertical" margin={{ left: 30, right: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                      <XAxis type="number" stroke="#94a3b8" tickFormatter={(val) => `$${val/1000}k`} />
+                      <YAxis dataKey="name" type="category" stroke="#e2e8f0" width={80} style={{ fontSize: '12px' }} />
+                      <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f1f5f9' }} cursor={{fill: '#334155', opacity: 0.2}} />
+                      <ReferenceLine x={0} stroke="#94a3b8" />
+                      <Bar dataKey="value" name="損益金額">
+                        {chartDataBar.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.value >= 0 ? '#ef4444' : '#22c55e'} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- TRANSACTIONS LIST VIEW --- */}
+        {activeTab === 'transactions' && (
+          <div className="space-y-4">
+            <div className="flex flex-col gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+              <h3 className="text-lg font-semibold text-slate-200">交易流水帳明細</h3>
+              
+              <div className="flex flex-col gap-4">
+                {/* 篩選與排序 */}
+                <div className="flex flex-wrap gap-3 items-center">
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700 shrink-0">
+                      <FilterButton active={filterType === 'all'} onClick={() => { setFilterType('all'); setSubFilterType('all'); }} label="全部" />
+                      <FilterButton active={filterType === 'trade'} onClick={() => setFilterType('trade')} label="股票買賣/股息" />
+                      <FilterButton active={filterType === 'deposit'} onClick={() => { setFilterType('deposit'); setSubFilterType('all'); }} label="資金存入" />
+                    </div>
+                    {filterType === 'trade' && (
+                      <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700 shrink-0 animate-in fade-in zoom-in-95 duration-200">
+                          <FilterButton active={subFilterType === 'all'} onClick={() => setSubFilterType('all')} label="全部" />
+                          <FilterButton active={subFilterType === 'fu'} onClick={() => setSubFilterType('fu')} label="父" />
+                          <FilterButton active={subFilterType === 'xu'} onClick={() => setSubFilterType('xu')} label="旭" />
+                          <FilterButton active={subFilterType === 'gong'} onClick={() => setSubFilterType('gong')} label="公" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="relative flex items-center bg-slate-900 rounded-lg border border-slate-600 px-3 py-1.5 shrink-0 ml-auto sm:ml-0">
+                    <ArrowUpDown size={14} className="text-slate-400 mr-2" />
+                    <select 
+                      value={sortOrder} 
+                      onChange={(e) => setSortOrder(e.target.value)}
+                      className="bg-transparent text-sm text-slate-200 outline-none appearance-none pr-4 cursor-pointer"
+                    >
+                      <option value="date-desc">時間 (近到遠)</option>
+                      <option value="date-asc">時間 (遠到近)</option>
+                      <option value="diff-desc">總價差 (高到低)</option>
+                      <option value="diff-asc">總價差 (低到高)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="relative w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input type="text" placeholder="搜尋代號、備註..." className="bg-slate-900 border border-slate-600 rounded-lg pl-10 pr-4 py-2 text-sm text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none w-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-slate-900/50 text-slate-400 uppercase tracking-wider">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">日期</th>
+                      <th className="px-4 py-3 font-medium">類別</th>
+                      <th className="px-4 py-3 font-medium">名稱</th>
+                      <th className="px-4 py-3 font-medium text-right">股數</th>
+                      <th className="px-4 py-3 font-medium text-right">單價</th>
+                      <th className="px-4 py-3 font-medium text-right">實付金額</th>
+                      <th className="px-4 py-3 font-medium text-right text-indigo-300">現價(N)</th>
+                      <th className="px-4 py-3 font-medium text-right">單價差(O)</th>
+                      <th className="px-4 py-3 font-medium text-right">總價差(P)</th>
+                      <th className="px-4 py-3 font-medium">備註</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700">
+                    {filteredTransactions.map((tx, idx) => {
+                      const side = (tx.side || '').toLowerCase();
+                      const isBuy = side.includes('買') || side.includes('buy');
+                      const isSell = side.includes('賣') || side.includes('sell');
+                      const isDeposit = side.includes('存') || side.includes('入金');
+                      const isDividend = side.includes('股息');
+
+                      let badgeColor = 'bg-slate-500/20 text-slate-300';
+                      if (isBuy) badgeColor = 'bg-green-500/20 text-green-300';
+                      if (isSell) badgeColor = 'bg-red-500/20 text-red-300';
+                      if (isDeposit) badgeColor = 'bg-blue-500/20 text-blue-300';
+                      if (isDividend) badgeColor = 'bg-red-500/20 text-red-300';
+
+                      const isMoneyIn = isSell || isDividend || isDeposit;
+                      const amountClass = isMoneyIn ? 'text-red-400 font-bold' : 'text-green-400';
+                      
+                      const currentPriceDisplay = tx.sheetCurrentPrice === 0 ? '-' : tx.sheetCurrentPrice.toLocaleString();
+                      
+                      const unitDiffColor = tx.unitDiff < 0 ? 'text-red-400 font-bold' : 'text-green-400';
+                      const totalDiffColor = tx.totalDiff < 0 ? 'text-red-400 font-bold' : 'text-green-400';
+
+                      return (
+                        <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
+                          <td className="px-4 py-3 text-slate-300">{tx.date}</td>
+                          <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded text-xs font-bold ${badgeColor}`}>{tx.side || '-'}</span></td>
+                          <td className="px-4 py-3 font-medium text-slate-200">{tx.symbol || '-'}</td>
+                          <td className="px-4 py-3 text-right text-slate-300">{tx.shares > 0 ? tx.shares.toLocaleString() : '-'}</td>
+                          <td className="px-4 py-3 text-right text-slate-300">{tx.price > 0 ? tx.price.toLocaleString() : '-'}</td>
+                          <td className={`px-4 py-3 text-right font-medium ${amountClass}`}>{tx.totalPaid.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right text-indigo-300 font-mono">{currentPriceDisplay}</td>
+                          <td className={`px-4 py-3 text-right font-mono ${unitDiffColor}`}>{tx.unitDiff !== 0 ? tx.unitDiff.toLocaleString() : '-'}</td>
+                          <td className={`px-4 py-3 text-right font-mono ${totalDiffColor}`}>{tx.totalDiff !== 0 ? tx.totalDiff.toLocaleString() : '-'}</td>
+                          <td className="px-4 py-3 text-slate-500 text-xs truncate max-w-[150px]">{tx.note}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* 免責聲明 */}
+              <div className="bg-slate-900/50 p-4 border-t border-slate-700 flex items-start gap-3">
+                <Info size={16} className="text-slate-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  提供的報價並非來自所有市場的即時報價 (最長可能延遲 20 分鐘)。所提供資訊均以現狀提供，僅供參考，不宜做為買賣依據或諮詢之用。
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- IMPORT DATA VIEW --- */}
+        {activeTab === 'import' && (
+          <div className="max-w-3xl mx-auto space-y-6">
+            <div className="bg-slate-800/50 p-8 rounded-xl border border-slate-700">
+              <h2 className="text-2xl font-bold mb-6 text-white flex items-center gap-2"><Upload /> 資料來源設定</h2>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Google Sheet CSV 連結</label>
+                  <div className="flex gap-2">
+                    <input type="text" value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                    <button onClick={() => fetchGoogleSheet(sheetUrl)} disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2">{loading ? <RefreshCw className="animate-spin" size={18} /> : '重新載入'}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-slate-800/30 p-6 rounded-xl border border-slate-700/50">
+               <h3 className="text-lg font-semibold text-slate-200 mb-3">Google Sheet N 欄公式 (推薦)</h3>
+               <div className="bg-slate-950 p-3 rounded border border-slate-800 text-xs font-mono text-green-400 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+                 =IF(M2="存入", "", IFERROR(GOOGLEFINANCE("TPE:"&A2), IFERROR(GOOGLEFINANCE(A2), "手動輸入")))
+               </div>
+               <p className="text-xs text-slate-500 mt-2">
+                 * O欄與P欄的公式建議：<br/>
+                 O2: <code>=IF(N2&lt;&gt;"", E2-N2, "")</code> (單價價差)<br/>
+                 P2: <code>=IF(N2&lt;&gt;"", (E2-N2)*D2, "")</code> (總價差)
+               </p>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function NavButton({ active, onClick, children, icon }) {
+  return (
+    <button onClick={onClick} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${active ? 'bg-slate-800 text-indigo-400 border border-slate-700' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>{icon}{children}</button>
+  );
+}
+
+function FilterButton({ active, onClick, label }) {
+  return (
+    <button onClick={onClick} className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${active ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}>{label}</button>
+  );
+}
+
+function SummaryCard({ title, value, icon, textColor = "text-white", onHelp }) {
+  return (
+    <div 
+      onClick={onHelp}
+      className="bg-slate-800/50 p-4 sm:p-5 rounded-xl border border-slate-700 shadow-lg hover:border-slate-600 hover:bg-slate-800/80 transition-all cursor-pointer group active:scale-[0.98]"
+    >
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex items-center gap-1.5 min-w-0 pr-2">
+          <p className="text-slate-400 text-xs font-medium uppercase tracking-wide truncate">{title}</p>
+          {onHelp && <HelpCircle size={14} className="text-slate-600 group-hover:text-indigo-400 transition-colors shrink-0" />}
+        </div>
+        <div className="p-2 bg-slate-900 rounded-lg shrink-0">{icon}</div>
+      </div>
+      <h3 className={`text-xl sm:text-2xl font-bold tracking-tight truncate ${textColor}`}>{value}</h3>
+    </div>
+  );
+}
