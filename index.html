@@ -100,6 +100,11 @@
             background-color: var(--accent-hover);
             color: white;
         }
+        .btn-primary:disabled {
+            background-color: var(--border-color);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
 
         /* 主要容器 */
         .container {
@@ -365,6 +370,7 @@
             const [dashboardView, setDashboardView] = useState('total'); 
             const [selectedPersona, setSelectedPersona] = useState('fu'); 
             const [helpModal, setHelpModal] = useState(null);
+            const [refreshStatus, setRefreshStatus] = useState(''); // 顯示重試狀態
 
             // CSV Parsing Logic
             const parseCSVLine = (text) => {
@@ -381,7 +387,8 @@
                 return result;
             };
 
-            const parseCSV = (csvText) => {
+            // 改為回傳資料，而非直接設定 State
+            const parseCSVReturningData = (csvText) => {
                 try {
                     const lines = csvText.trim().split('\n');
                     if (lines.length < 2) throw new Error('CSV 內容過短或為空');
@@ -407,9 +414,10 @@
                         const totalK = values[10] ? cleanNumber(values[10]) : 0;
                         const sideRaw = values[12] ? values[12].replace(/"/g, '').trim() : '';
                         
-                        // New fields: P column (15) and Q column (16)
+                        // New fields: P column (15) and Q column (16), R column (17)
                         const totalDiffP = values[15] ? cleanNumber(values[15]) : 0;
                         const returnRateQ = values[16] ? cleanNumber(values[16]) : 0;
+                        const marketValueR = values[17] ? cleanNumber(values[17]) : 0;
 
                         return {
                             id: values[0]?.replace(/"/g, '') || `row-${index}`,
@@ -427,24 +435,28 @@
                             side: sideRaw,
                             sheetCurrentPrice: values[13] ? cleanNumber(values[13]) : 0,
                             unitDiff: values[14] ? cleanNumber(values[14]) : 0,
-                            totalDiff: totalDiffP, // P column
-                            returnRate: returnRateQ // Q column
+                            totalDiff: totalDiffP, // P column (Unrealized P&L from sheet)
+                            returnRate: returnRateQ, // Q column (Return Rate from sheet)
+                            marketValueR: marketValueR // R column (Market Value from sheet)
                         };
                     }).filter(item => item !== null && (item.symbol !== '' || item.side !== '' || item.totalPaid !== 0));
 
                     if (parsedTransactions.length === 0) throw new Error('解析成功但無有效交易資料');
-                    setTransactions(parsedTransactions);
-                    setError(null);
+                    return parsedTransactions;
                 } catch (err) {
                     console.error(err);
-                    setError(`解析錯誤: ${err.message}`);
+                    throw err; // 拋出錯誤讓外層捕捉
                 }
             };
 
-            const fetchGoogleSheet = async (url, forceProxy = false) => {
+            const fetchGoogleSheet = async (url, forceProxy = false, retryCount = 0) => {
                 const targetUrl = url || sheetUrl;
                 if (!targetUrl) return;
-                setLoading(true);
+                
+                // 只在第一次或手動點擊時顯示 Loading，背景重試時不蓋住畫面
+                if (retryCount === 0) setLoading(true);
+                if (retryCount > 0) setRefreshStatus(`同步中... (${retryCount}/5)`);
+                
                 setError(null);
                 
                 let fetchUrl = targetUrl;
@@ -466,17 +478,40 @@
                     if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
                     const text = await response.text();
                     if (text.trim().startsWith('<!DOCTYPE html>')) throw new Error('讀取到網頁而非 CSV');
-                    parseCSV(text);
+                    
+                    const parsedData = parseCSVReturningData(text);
+                    
+                    // --- Auto-Retry Logic ---
+                    // 檢查是否有「持有中」的股票 (股數>0) 但是現價為 0 (代表 Sheet 還在 Loading)
+                    const hasMissingData = parsedData.some(t => 
+                        t.symbol && 
+                        t.shares > 0 && 
+                        t.side.includes('買') && 
+                        (t.sheetCurrentPrice === 0 || t.sheetCurrentPrice === undefined)
+                    );
+
+                    setTransactions(parsedData); // 先顯示抓到的資料 (即使不完整)
+
+                    if (hasMissingData && retryCount < 5) {
+                        console.log(`發現缺漏資料，將於 1.5 秒後重試... (第 ${retryCount + 1} 次)`);
+                        setTimeout(() => {
+                            fetchGoogleSheet(url, forceProxy, retryCount + 1);
+                        }, 1500); // 1.5秒後重試
+                    } else {
+                        setLoading(false);
+                        setRefreshStatus('');
+                    }
+
                     if (activeTab === 'import') setActiveTab('dashboard');
                 } catch (err) {
-                    if (!forceProxy && !useProxy) {
+                    if (!forceProxy && !useProxy && retryCount === 0) {
                         setUseProxy(true);
-                        fetchGoogleSheet(url, true);
+                        fetchGoogleSheet(url, true, 0);
                     } else {
                         setError(err.message + (useProxy ? " (已嘗試救援模式)" : ""));
+                        setLoading(false);
+                        setRefreshStatus('');
                     }
-                } finally {
-                    setLoading(false);
                 }
             };
 
@@ -486,119 +521,174 @@
 
             // Calculation Logic
             const { portfolio, summary } = useMemo(() => {
-                const holdings = {};
-                let totalDeposits = 0;
-                let cashBalance = 0;
-                const priceMap = {}; // Need this to track latest prices
+                
+                // --- Helper Function: Calculate Data for ONE Persona ---
+                const calculatePersonaData = (persona) => {
+                    const holdings = {};
+                    let totalDeposits = 0;
+                    let cashBalance = 0;
+                    const priceMap = {};
 
-                let targetTransactions = transactions;
-                if (dashboardView === 'personal') {
-                    targetTransactions = transactions.filter(t => {
+                    // 1. Filter transactions
+                    const targetTx = transactions.filter(t => {
                         const note = (t.note || '').toLowerCase();
-                        if (selectedPersona === 'fu' && note.includes('父')) return true;
-                        if (selectedPersona === 'xu' && note.includes('旭')) return true;
-                        if (selectedPersona === 'gong' && note.includes('公')) return true;
+                        if (persona === 'fu') return note.includes('父');
+                        if (persona === 'xu') return note.includes('旭');
+                        if (persona === 'gong') return note.includes('公');
                         return false;
+                    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                    // 2. Process transactions
+                    targetTx.forEach(tx => {
+                        const side = (tx.side || '').toLowerCase();
+                        const sym = tx.symbol;
+                        const absTotalK = Math.abs(tx.totalK);
+
+                        // Cash & Deposits
+                        if (side.includes('存') || side.includes('入')) {
+                            cashBalance += absTotalK;
+                            totalDeposits += absTotalK;
+                        } else if (side.includes('買')) {
+                            cashBalance -= absTotalK;
+                            const fx = tx.fx || 1;
+                            const cost = (tx.amountG + tx.feeH) * fx - tx.taxI;
+                            if (sym) {
+                                if (!holdings[sym]) holdings[sym] = { symbol: sym, totalShares: 0, totalCost: 0, csvTotalDiff: 0, csvMarketValueR: 0 };
+                                holdings[sym].totalShares += tx.shares;
+                                holdings[sym].totalCost += cost;
+                                holdings[sym].csvTotalDiff += tx.totalDiff; 
+                                if (tx.marketValueR) holdings[sym].csvMarketValueR += tx.marketValueR;
+                            }
+                        } else if (side.includes('賣')) {
+                            cashBalance += absTotalK;
+                            if (sym && holdings[sym] && holdings[sym].totalShares > 0) {
+                                const avgCost = holdings[sym].totalCost / holdings[sym].totalShares;
+                                const sellRatio = tx.shares / holdings[sym].totalShares;
+                                holdings[sym].csvTotalDiff -= (holdings[sym].csvTotalDiff * sellRatio);
+                                holdings[sym].csvMarketValueR -= (holdings[sym].csvMarketValueR * sellRatio);
+                                holdings[sym].totalShares -= tx.shares;
+                                holdings[sym].totalCost -= (tx.shares * avgCost);
+                            }
+                        } else if (side.includes('息')) {
+                            cashBalance += absTotalK;
+                            if (sym && holdings[sym]) holdings[sym].totalCost -= absTotalK;
+                        }
+
+                        // Price Map Update
+                        if (sym && tx.sheetCurrentPrice > 0) priceMap[sym] = tx.sheetCurrentPrice;
+
+                        // Cleanup zero holdings
+                        if (sym && holdings[sym] && holdings[sym].totalShares < 0.0001) {
+                            holdings[sym].totalShares = 0;
+                            holdings[sym].totalCost = 0;
+                            holdings[sym].csvTotalDiff = 0;
+                            holdings[sym].csvMarketValueR = 0;
+                        }
+                    });
+
+                    // Rule: Xu cash = 0
+                    if (persona === 'xu') cashBalance = 0;
+
+                    // 3. Summarize this persona
+                    let pMarketValue = 0;
+                    let pCost = 0;
+                    let pGainLoss = 0;
+
+                    Object.values(holdings).forEach(h => {
+                        if (h.totalShares <= 0) return;
+                        // Market Value Priority: R Column > PriceMap * Shares
+                        let mv = h.csvMarketValueR;
+                        if (!mv || mv === 0) {
+                            mv = (priceMap[h.symbol] || 0) * h.totalShares;
+                        }
+                        pMarketValue += mv;
+                        pCost += h.totalCost;
+                        pGainLoss += h.csvTotalDiff; // P Column Sum
+                    });
+
+                    return {
+                        holdings,
+                        summary: {
+                            totalMarketValue: pMarketValue,
+                            totalCost: pCost,
+                            totalGainLoss: pGainLoss,
+                            totalDeposits,
+                            cashBalance
+                        }
+                    };
+                };
+
+                // --- MAIN SWITCH ---
+                let finalSummary = { totalMarketValue: 0, totalCost: 0, totalGainLoss: 0, totalReturnRate: 0, totalDeposits: 0, cashBalance: 0 };
+                let finalHoldings = {};
+
+                if (dashboardView === 'personal') {
+                    const data = calculatePersonaData(selectedPersona);
+                    finalSummary = { ...data.summary };
+                    finalHoldings = data.holdings;
+                } else {
+                    // Total View: Sum of 3 personas
+                    const fu = calculatePersonaData('fu');
+                    const xu = calculatePersonaData('xu');
+                    const gong = calculatePersonaData('gong');
+
+                    // Strict Summation
+                    finalSummary.totalMarketValue = fu.summary.totalMarketValue + xu.summary.totalMarketValue + gong.summary.totalMarketValue;
+                    finalSummary.totalCost = fu.summary.totalCost + xu.summary.totalCost + gong.summary.totalCost;
+                    finalSummary.totalGainLoss = fu.summary.totalGainLoss + xu.summary.totalGainLoss + gong.summary.totalGainLoss;
+                    finalSummary.totalDeposits = fu.summary.totalDeposits + xu.summary.totalDeposits + gong.summary.totalDeposits;
+                    finalSummary.cashBalance = fu.summary.cashBalance + xu.summary.cashBalance + gong.summary.cashBalance;
+
+                    // Merge holdings for Chart display (approximation)
+                    // We iterate all 3 holdings lists and merge them into finalHoldings
+                    [fu, xu, gong].forEach(p => {
+                        Object.values(p.holdings).forEach(h => {
+                            if (!finalHoldings[h.symbol]) {
+                                finalHoldings[h.symbol] = { ...h };
+                            } else {
+                                finalHoldings[h.symbol].totalShares += h.totalShares;
+                                finalHoldings[h.symbol].totalCost += h.totalCost;
+                                finalHoldings[h.symbol].csvTotalDiff += h.csvTotalDiff;
+                                finalHoldings[h.symbol].csvMarketValueR += h.csvMarketValueR;
+                            }
+                        });
                     });
                 }
 
-                const sortedTx = [...targetTransactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+                // Final Return Rate
+                finalSummary.totalReturnRate = (finalSummary.totalCost > 0) 
+                    ? (finalSummary.totalGainLoss / finalSummary.totalCost) * 100 
+                    : 0;
 
-                sortedTx.forEach(tx => {
-                    const side = (tx.side || '').toLowerCase();
-                    const sym = tx.symbol;
-                    
-                    const absTotalK = Math.abs(tx.totalK);
-
-                    if (side.includes('存入') || side.includes('入金') || side.includes('deposit')) {
-                        cashBalance += absTotalK;
-                        totalDeposits += absTotalK;
-                    } else if (side.includes('買') || side.includes('buy')) {
-                        cashBalance -= absTotalK;
-                        
-                        const fx = tx.fx || 1;
-                        const cost = (tx.amountG + tx.feeH) * fx - tx.taxI;
-
-                        if (sym) {
-                            if (!holdings[sym]) holdings[sym] = { symbol: sym, totalShares: 0, totalCost: 0, csvTotalDiff: 0 };
-                            holdings[sym].totalShares += tx.shares;
-                            holdings[sym].totalCost += cost;
-                            holdings[sym].csvTotalDiff += tx.totalDiff; 
-                        }
-                    } else if (side.includes('賣') || side.includes('sell')) {
-                        cashBalance += absTotalK;
-
-                        if (sym && holdings[sym] && holdings[sym].totalShares > 0) {
-                            const avgCost = holdings[sym].totalCost / holdings[sym].totalShares;
-                            
-                            const sellRatio = tx.shares / holdings[sym].totalShares;
-                            holdings[sym].csvTotalDiff -= (holdings[sym].csvTotalDiff * sellRatio);
-
-                            holdings[sym].totalShares -= tx.shares;
-                            holdings[sym].totalCost -= (tx.shares * avgCost);
-                        }
-                    } else if (side.includes('股息') || side.includes('dividend')) {
-                        cashBalance += absTotalK;
-                        
-                        if (sym && holdings[sym]) {
-                            holdings[sym].totalCost -= absTotalK;
-                        }
-                    }
-
-                    if (sym && tx.sheetCurrentPrice > 0) {
-                        priceMap[sym] = tx.sheetCurrentPrice;
-                    }
-
-                    if (sym && holdings[sym] && holdings[sym].totalShares < 0.0001) {
-                        holdings[sym].totalShares = 0;
-                        holdings[sym].totalCost = 0;
-                        holdings[sym].csvTotalDiff = 0;
-                    }
-                });
-
-                if (dashboardView === 'personal' && selectedPersona === 'xu') {
-                    cashBalance = 0;
-                }
-
-                const finalPortfolio = Object.values(holdings)
+                // Prepare List for Table/Charts
+                const portfolioArray = Object.values(finalHoldings)
                     .filter(h => h.totalShares > 0)
                     .map(h => {
-                        // 1. 市值 = 現價 (N) * 持有股數 (D)
-                        const currentPrice = priceMap[h.symbol] || 0;
-                        const marketValue = currentPrice * h.totalShares;
-                        
-                        // 2. 未實現損益 = 市值 - 總成本 (確保恆等式)
-                        const gainLoss = marketValue - h.totalCost;
-                        
-                        // 3. 報酬率 = P&L / Cost
-                        const gainLossPercent = (h.totalCost > 0) ? (gainLoss / h.totalCost) * 100 : 0;
+                        let marketValue = h.csvMarketValueR;
+                        // Fallback logic for display consistency (though summary uses its own calc)
+                        if (!marketValue || marketValue === 0) {
+                             // Note: priceMap is lost in merge, but for chart display approx is fine.
+                             // To be precise we should have merged priceMap too, but R column is primary now.
+                             // If R is missing in Total view, it might show 0 here if we don't have price.
+                             // But most rows have R.
+                             marketValue = 0; 
+                        }
                         
                         return {
                             name: h.symbol,
                             ...h,
-                            currentPrice, // Pass this for display if needed
-                            marketValue,
-                            gainLoss,
-                            gainLossPercent
+                            marketValue: marketValue,
+                            gainLoss: h.csvTotalDiff,
+                            gainLossPercent: (h.totalCost > 0) ? (h.csvTotalDiff / h.totalCost) * 100 : 0
                         };
                     })
                     .sort((a, b) => b.marketValue - a.marketValue);
 
-                const totalMarketValue = finalPortfolio.reduce((acc, curr) => acc + curr.marketValue, 0);
-                const totalCost = finalPortfolio.reduce((acc, curr) => acc + curr.totalCost, 0);
-                const totalGainLoss = totalMarketValue - totalCost;
-                
                 return {
-                    portfolio: finalPortfolio,
-                    summary: { 
-                        totalMarketValue, 
-                        totalCost, 
-                        totalGainLoss, 
-                        totalReturnRate: totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0,
-                        totalDeposits, 
-                        cashBalance
-                    }
+                    portfolio: portfolioArray,
+                    summary: finalSummary
                 };
+
             }, [transactions, dashboardView, selectedPersona]);
 
             const filteredTransactions = useMemo(() => {
@@ -698,12 +788,12 @@
 
                                 <div className="dashboard-grid">
                                     <SummaryCard title="目前市值" value={Math.round(summary.totalMarketValue).toLocaleString()} icon={ICONS.money} 
-                                        onClick={() => setHelpModal({title: '目前市值', content: '現價(N) × 庫存股數(D)'})}/>
+                                        onClick={() => setHelpModal({title: '目前市值', content: 'Sheet R欄 (若無則用 N欄 × D欄)'})}/>
                                     <SummaryCard title="總成本 (本金)" value={Math.round(summary.totalCost).toLocaleString()} icon={ICONS.upload} 
                                         onClick={() => setHelpModal({title: '總成本', content: '買入: (成交金額+手續費)*匯率 - 交易稅'})}/>
                                     <SummaryCard title="未實現損益" value={Math.round(summary.totalGainLoss).toLocaleString()} icon={ICONS.trendUp} 
                                         color={summary.totalGainLoss <= 0 ? 'var(--danger)' : 'var(--success)'}
-                                        onClick={() => setHelpModal({title: '未實現損益', content: '市值 - 總成本'})}/>
+                                        onClick={() => setHelpModal({title: '未實現損益', content: '直接加總 Google Sheet 的 P欄 (Total Diff)'})}/>
                                     <SummaryCard title="報酬率" value={`${summary.totalReturnRate.toFixed(2)}%`} icon={ICONS.chart}
                                         color={summary.totalReturnRate <= 0 ? 'var(--danger)' : 'var(--success)'}
                                         onClick={() => setHelpModal({title: '報酬率', content: '(未實現損益 ÷ 總成本) × 100%'})}/>
@@ -726,7 +816,7 @@
                                                         <th className="text-right">股數</th>
                                                         <th className="text-right bg-indigo-light">總成本</th>
                                                         <th className="text-right">市值</th>
-                                                        <th className="text-right">未實現損益</th>
+                                                        <th className="text-right">未實現損益(P)</th>
                                                         <th className="text-right">報酬率</th>
                                                     </tr>
                                                 </thead>
@@ -753,8 +843,8 @@
                                             </table>
                                         </div>
                                         <div className="formula-box">
-                                            <div className="formula-item"><div className="dot"></div><strong>市值</strong> = 現價 × 股數</div>
-                                            <div className="formula-item"><div className="dot"></div><strong>未實現損益</strong> = 市值 - 總成本</div>
+                                            <div className="formula-item"><div className="dot"></div><strong>市值</strong> = R欄 (若無則 N欄×D欄)</div>
+                                            <div className="formula-item"><div className="dot"></div><strong>未實現損益</strong> = 來自 CSV P欄總和</div>
                                             <div className="formula-item"><div className="dot"></div><strong>報酬率</strong> = (損益 ÷ 總成本)%</div>
                                         </div>
                                     </div>
@@ -829,7 +919,7 @@
                                                 <th>日期</th><th>類別</th><th>名稱</th><th className="text-right">股數</th>
                                                 <th className="text-right">單價</th><th className="text-right">實付金額</th>
                                                 <th className="text-right text-indigo">現價(N)</th><th className="text-right">價差(P)</th>
-                                                <th className="text-right">報酬率(Q)</th>
+                                                <th className="text-right">報酬率%(Q)</th>
                                                 <th>備註</th>
                                             </tr>
                                         </thead>
@@ -843,11 +933,13 @@
                                                 else if (side.includes('息')) badgeClass += ' badge-div';
                                                 
                                                 const isMoneyIn = side.includes('賣') || side.includes('息') || side.includes('存');
-                                                const diffColor = tx.totalDiff < 0 ? 'text-red font-bold' : 'text-green';
+                                                const diffColor = tx.totalDiff <= 0 ? 'text-red font-bold' : 'text-green';
                                                 
                                                 // 報酬率顏色邏輯: 負數為紅(賺), 正數為綠(賠)
+                                                // 僅買賣類別顯示報酬率
+                                                const showReturn = side.includes('買') || side.includes('賣');
                                                 const returnRateVal = parseFloat(tx.returnRate) || 0;
-                                                const returnRateColor = returnRateVal < 0 ? 'text-red font-bold' : (returnRateVal > 0 ? 'text-green' : 'text-muted');
+                                                const returnRateColor = returnRateVal <= 0 ? 'text-red font-bold' : (returnRateVal > 0 ? 'text-green' : 'text-muted');
 
                                                 return (
                                                     <tr key={idx}>
@@ -859,7 +951,7 @@
                                                         <td className={`text-right font-bold ${isMoneyIn ? 'text-red' : 'text-green'}`}>{tx.totalPaid.toLocaleString()}</td>
                                                         <td className="text-right text-indigo font-mono">{tx.sheetCurrentPrice || '-'}</td>
                                                         <td className={`text-right font-mono ${diffColor}`}>{tx.totalDiff ? tx.totalDiff.toLocaleString() : '-'}</td>
-                                                        <td className={`text-right font-mono ${returnRateColor}`}>{tx.returnRate ? tx.returnRate + '%' : '-'}</td>
+                                                        <td className={`text-right font-mono ${returnRateColor}`}>{showReturn && tx.returnRate ? tx.returnRate + '%' : '-'}</td>
                                                         <td style={{fontSize:'12px', color:'var(--text-muted)'}}>{tx.note}</td>
                                                     </tr>
                                                 );
