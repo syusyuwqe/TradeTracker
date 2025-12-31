@@ -13,7 +13,7 @@
     <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- 標準 CSS 樣式表 (不使用 Tailwind) -->
+    <!-- 標準 CSS 樣式表 -->
     <style>
         :root {
             --bg-dark: #0f172a;       /* slate-900 */
@@ -320,7 +320,6 @@
         const { useState, useEffect, useMemo } = React;
         const { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } = Recharts;
 
-        // --- 簡易 Icon 元件 (取代 Lucide 以避免依賴) ---
         const Icon = ({ path, size = 20, className = "" }) => (
             <svg 
                 xmlns="http://www.w3.org/2000/svg" 
@@ -334,7 +333,6 @@
             </svg>
         );
 
-        // Icons Data (Fixed: Wrapped multiple elements in fragments)
         const ICONS = {
             dashboard: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>,
             list: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>,
@@ -400,23 +398,37 @@
 
                         if (values.length < 10) return null;
 
-                        const valK = cleanNumber(values[10]);
-                        const valJ = cleanNumber(values[9]);
-                        const totalPaid = valK !== 0 ? valK : valJ;
+                        const shares = cleanNumber(values[3]);
+                        const price = cleanNumber(values[4]);
+                        const fx = values[5] ? cleanNumber(values[5]) : 1;
+                        const amountG = values[6] ? cleanNumber(values[6]) : (shares * price);
+                        const feeH = values[7] ? cleanNumber(values[7]) : 0;
+                        const taxI = values[8] ? cleanNumber(values[8]) : 0;
+                        const totalK = values[10] ? cleanNumber(values[10]) : 0;
                         const sideRaw = values[12] ? values[12].replace(/"/g, '').trim() : '';
                         
+                        // New fields: P column (15) and Q column (16)
+                        const totalDiffP = values[15] ? cleanNumber(values[15]) : 0;
+                        const returnRateQ = values[16] ? cleanNumber(values[16]) : 0;
+
                         return {
                             id: values[0]?.replace(/"/g, '') || `row-${index}`,
                             symbol: values[1]?.replace(/"/g, '').trim() || '',
                             date: values[2]?.replace(/"/g, '').trim(),
-                            shares: cleanNumber(values[3]),
-                            price: cleanNumber(values[4]),
-                            totalPaid: totalPaid,
+                            shares: shares,
+                            price: price,
+                            fx: fx,
+                            amountG: amountG,
+                            feeH: feeH,
+                            taxI: taxI,
+                            totalK: totalK,
+                            totalPaid: totalK, 
                             note: values[11]?.replace(/"/g, '').trim() || '', 
                             side: sideRaw,
                             sheetCurrentPrice: values[13] ? cleanNumber(values[13]) : 0,
                             unitDiff: values[14] ? cleanNumber(values[14]) : 0,
-                            totalDiff: values[15] ? cleanNumber(values[15]) : 0
+                            totalDiff: totalDiffP, // P column
+                            returnRate: returnRateQ // Q column
                         };
                     }).filter(item => item !== null && (item.symbol !== '' || item.side !== '' || item.totalPaid !== 0));
 
@@ -475,9 +487,9 @@
             // Calculation Logic
             const { portfolio, summary } = useMemo(() => {
                 const holdings = {};
-                const priceMap = {}; 
                 let totalDeposits = 0;
                 let cashBalance = 0;
+                const priceMap = {}; // Need this to track latest prices
 
                 let targetTransactions = transactions;
                 if (dashboardView === 'personal') {
@@ -495,37 +507,52 @@
                 sortedTx.forEach(tx => {
                     const side = (tx.side || '').toLowerCase();
                     const sym = tx.symbol;
-                    cashBalance += tx.totalPaid;
+                    
+                    const absTotalK = Math.abs(tx.totalK);
 
                     if (side.includes('存入') || side.includes('入金') || side.includes('deposit')) {
-                        totalDeposits += tx.totalPaid;
-                    }
+                        cashBalance += absTotalK;
+                        totalDeposits += absTotalK;
+                    } else if (side.includes('買') || side.includes('buy')) {
+                        cashBalance -= absTotalK;
+                        
+                        const fx = tx.fx || 1;
+                        const cost = (tx.amountG + tx.feeH) * fx - tx.taxI;
 
-                    if (!sym) return;
-                    if (tx.sheetCurrentPrice > 0) priceMap[sym] = tx.sheetCurrentPrice;
+                        if (sym) {
+                            if (!holdings[sym]) holdings[sym] = { symbol: sym, totalShares: 0, totalCost: 0, csvTotalDiff: 0 };
+                            holdings[sym].totalShares += tx.shares;
+                            holdings[sym].totalCost += cost;
+                            holdings[sym].csvTotalDiff += tx.totalDiff; 
+                        }
+                    } else if (side.includes('賣') || side.includes('sell')) {
+                        cashBalance += absTotalK;
 
-                    if (!holdings[sym]) holdings[sym] = { symbol: sym, totalShares: 0, totalCost: 0 };
-
-                    const isBuy = side.includes('買') || side.includes('buy');
-                    const isSell = side.includes('賣') || side.includes('sell');
-                    const isDividend = side.includes('股息') || side.includes('dividend');
-                    
-                    if (isBuy) {
-                        holdings[sym].totalShares += tx.shares;
-                        holdings[sym].totalCost += Math.abs(tx.totalPaid);
-                    } else if (isSell) {
-                        if (holdings[sym].totalShares > 0) {
+                        if (sym && holdings[sym] && holdings[sym].totalShares > 0) {
                             const avgCost = holdings[sym].totalCost / holdings[sym].totalShares;
+                            
+                            const sellRatio = tx.shares / holdings[sym].totalShares;
+                            holdings[sym].csvTotalDiff -= (holdings[sym].csvTotalDiff * sellRatio);
+
                             holdings[sym].totalShares -= tx.shares;
                             holdings[sym].totalCost -= (tx.shares * avgCost);
                         }
-                    } else if (isDividend) {
-                        holdings[sym].totalCost -= Math.abs(tx.totalPaid);
+                    } else if (side.includes('股息') || side.includes('dividend')) {
+                        cashBalance += absTotalK;
+                        
+                        if (sym && holdings[sym]) {
+                            holdings[sym].totalCost -= absTotalK;
+                        }
                     }
 
-                    if (holdings[sym].totalShares < 0.0001) {
+                    if (sym && tx.sheetCurrentPrice > 0) {
+                        priceMap[sym] = tx.sheetCurrentPrice;
+                    }
+
+                    if (sym && holdings[sym] && holdings[sym].totalShares < 0.0001) {
                         holdings[sym].totalShares = 0;
                         holdings[sym].totalCost = 0;
+                        holdings[sym].csvTotalDiff = 0;
                     }
                 });
 
@@ -536,15 +563,23 @@
                 const finalPortfolio = Object.values(holdings)
                     .filter(h => h.totalShares > 0)
                     .map(h => {
+                        // 1. 市值 = 現價 (N) * 持有股數 (D)
                         const currentPrice = priceMap[h.symbol] || 0;
-                        const marketValue = h.totalShares * currentPrice;
+                        const marketValue = currentPrice * h.totalShares;
+                        
+                        // 2. 未實現損益 = 市值 - 總成本 (確保恆等式)
+                        const gainLoss = marketValue - h.totalCost;
+                        
+                        // 3. 報酬率 = P&L / Cost
+                        const gainLossPercent = (h.totalCost > 0) ? (gainLoss / h.totalCost) * 100 : 0;
+                        
                         return {
                             name: h.symbol,
                             ...h,
-                            currentPrice,
+                            currentPrice, // Pass this for display if needed
                             marketValue,
-                            gainLoss: marketValue - h.totalCost,
-                            gainLossPercent: (h.totalCost > 0 && currentPrice > 0) ? ((marketValue - h.totalCost) / h.totalCost) * 100 : 0
+                            gainLoss,
+                            gainLossPercent
                         };
                     })
                     .sort((a, b) => b.marketValue - a.marketValue);
@@ -566,7 +601,6 @@
                 };
             }, [transactions, dashboardView, selectedPersona]);
 
-            // Filter logic
             const filteredTransactions = useMemo(() => {
                 let filtered = transactions.filter(t => {
                     const matchesSearch = 
@@ -664,19 +698,19 @@
 
                                 <div className="dashboard-grid">
                                     <SummaryCard title="目前市值" value={Math.round(summary.totalMarketValue).toLocaleString()} icon={ICONS.money} 
-                                        onClick={() => setHelpModal({title: '目前市值', content: 'Google Sheet 現價 × 庫存股數'})}/>
+                                        onClick={() => setHelpModal({title: '目前市值', content: '現價(N) × 庫存股數(D)'})}/>
                                     <SummaryCard title="總成本 (本金)" value={Math.round(summary.totalCost).toLocaleString()} icon={ICONS.upload} 
-                                        onClick={() => setHelpModal({title: '總成本', content: '移動平均法計算：\n買入增加成本，賣出/股息減少成本'})}/>
+                                        onClick={() => setHelpModal({title: '總成本', content: '買入: (成交金額+手續費)*匯率 - 交易稅'})}/>
                                     <SummaryCard title="未實現損益" value={Math.round(summary.totalGainLoss).toLocaleString()} icon={ICONS.trendUp} 
-                                        color={summary.totalGainLoss >= 0 ? 'var(--danger)' : 'var(--success)'}
-                                        onClick={() => setHelpModal({title: '未實現損益', content: '目前市值 - 總成本'})}/>
+                                        color={summary.totalGainLoss <= 0 ? 'var(--danger)' : 'var(--success)'}
+                                        onClick={() => setHelpModal({title: '未實現損益', content: '市值 - 總成本'})}/>
                                     <SummaryCard title="報酬率" value={`${summary.totalReturnRate.toFixed(2)}%`} icon={ICONS.chart}
-                                        color={summary.totalReturnRate >= 0 ? 'var(--danger)' : 'var(--success)'}
+                                        color={summary.totalReturnRate <= 0 ? 'var(--danger)' : 'var(--success)'}
                                         onClick={() => setHelpModal({title: '報酬率', content: '(未實現損益 ÷ 總成本) × 100%'})}/>
                                     <SummaryCard title="存放金額" value={Math.round(summary.totalDeposits).toLocaleString()} icon={ICONS.piggy} color="#60a5fa"
-                                        onClick={() => setHelpModal({title: '存放金額', content: '所有「存入」與「入金」的總額'})}/>
+                                        onClick={() => setHelpModal({title: '存放金額', content: '所有「存入」與「入金」的總額 (取 K欄絕對值)'})}/>
                                     <SummaryCard title="帳戶結餘 (現金)" value={Math.round(summary.cashBalance).toLocaleString()} icon={ICONS.wallet}
-                                        onClick={() => setHelpModal({title: '帳戶結餘', content: '總流入(賣出+股息+存入) - 總流出(買入)'})}/>
+                                        onClick={() => setHelpModal({title: '帳戶結餘', content: '從 K 欄計算: 存入 - 買入 + 賣出 + 股息'})}/>
                                 </div>
 
                                 {dashboardView === 'personal' && portfolio.length > 0 && (
@@ -703,8 +737,8 @@
                                                             <td className="text-right">{item.totalShares.toLocaleString()}</td>
                                                             <td className="text-right bg-indigo-light">{Math.round(item.totalCost).toLocaleString()}</td>
                                                             <td className="text-right">{Math.round(item.marketValue).toLocaleString()}</td>
-                                                            <td className={`text-right font-bold ${item.gainLoss >= 0 ? 'text-red' : 'text-green'}`}>{Math.round(item.gainLoss).toLocaleString()}</td>
-                                                            <td className={`text-right ${item.gainLossPercent >= 0 ? 'text-red' : 'text-green'}`}>{item.gainLossPercent.toFixed(2)}%</td>
+                                                            <td className={`text-right font-bold ${item.gainLoss <= 0 ? 'text-red' : 'text-green'}`}>{Math.round(item.gainLoss).toLocaleString()}</td>
+                                                            <td className={`text-right ${item.gainLossPercent <= 0 ? 'text-red' : 'text-green'}`}>{item.gainLossPercent.toFixed(2)}%</td>
                                                         </tr>
                                                     ))}
                                                     <tr style={{background: 'rgba(15,23,42,0.8)', fontWeight: 'bold', borderTop: '2px solid var(--border-color)'}}>
@@ -712,22 +746,22 @@
                                                         <td className="text-right">-</td>
                                                         <td className="text-right bg-indigo-light">{Math.round(summary.totalCost).toLocaleString()}</td>
                                                         <td className="text-right">{Math.round(summary.totalMarketValue).toLocaleString()}</td>
-                                                        <td className={`text-right ${summary.totalGainLoss >= 0 ? 'text-red' : 'text-green'}`}>{Math.round(summary.totalGainLoss).toLocaleString()}</td>
+                                                        <td className={`text-right ${summary.totalGainLoss <= 0 ? 'text-red' : 'text-green'}`}>{Math.round(summary.totalGainLoss).toLocaleString()}</td>
                                                         <td className="text-right">-</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
                                         </div>
                                         <div className="formula-box">
-                                            <div className="formula-item"><div className="dot"></div><strong>目前市值</strong> = Google Sheet 現價 × 庫存股數</div>
-                                            <div className="formula-item"><div className="dot"></div><strong>未實現損益</strong> = 目前市值 - 總成本</div>
-                                            <div className="formula-item"><div className="dot"></div><strong>報酬率</strong> = (未實現損益 ÷ 總成本) × 100%</div>
+                                            <div className="formula-item"><div className="dot"></div><strong>市值</strong> = 現價 × 股數</div>
+                                            <div className="formula-item"><div className="dot"></div><strong>未實現損益</strong> = 市值 - 總成本</div>
+                                            <div className="formula-item"><div className="dot"></div><strong>報酬率</strong> = (損益 ÷ 總成本)%</div>
                                         </div>
                                     </div>
                                 )}
 
                                 <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1.5rem'}}>
-                                    <div className="card" style={{height: '350px'}}>
+                                    <div className="card" style={{height: '450px'}}>
                                         <h4 style={{textAlign:'center', margin:'0 0 1rem 0'}}>資產配置 (市值)</h4>
                                         <ResponsiveContainer width="100%" height="90%">
                                             <PieChart>
@@ -739,17 +773,24 @@
                                             </PieChart>
                                         </ResponsiveContainer>
                                     </div>
-                                    <div className="card" style={{height: '350px'}}>
+                                    <div className="card" style={{height: '450px'}}>
                                         <h4 style={{textAlign:'center', margin:'0 0 1rem 0'}}>損益分佈</h4>
                                         <ResponsiveContainer width="100%" height="90%">
-                                            <BarChart data={chartDataBar} layout="vertical" margin={{ left: 20 }}>
+                                            <BarChart data={chartDataBar} layout="vertical" margin={{ left: 10, right: 30 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false}/>
                                                 <XAxis type="number" stroke="#94a3b8" tickFormatter={(val) => `$${val/1000}k`} />
-                                                <YAxis dataKey="name" type="category" stroke="#e2e8f0" width={80} style={{fontSize: '12px'}} />
+                                                <YAxis 
+                                                    dataKey="name" 
+                                                    type="category" 
+                                                    stroke="#e2e8f0" 
+                                                    width={100} 
+                                                    style={{fontSize: '12px'}} 
+                                                    tickFormatter={(val) => val.length > 6 ? val.substring(0, 6) + '...' : val}
+                                                />
                                                 <Tooltip contentStyle={{backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff'}} cursor={{fill: '#334155', opacity: 0.2}}/>
                                                 <ReferenceLine x={0} stroke="#94a3b8" />
                                                 <Bar dataKey="value" name="損益">
-                                                    {chartDataBar.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.value >= 0 ? '#ef4444' : '#10b981'} />)}
+                                                    {chartDataBar.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.value <= 0 ? '#ef4444' : '#10b981'} />)}
                                                 </Bar>
                                             </BarChart>
                                         </ResponsiveContainer>
@@ -787,7 +828,9 @@
                                             <tr>
                                                 <th>日期</th><th>類別</th><th>名稱</th><th className="text-right">股數</th>
                                                 <th className="text-right">單價</th><th className="text-right">實付金額</th>
-                                                <th className="text-right text-indigo">現價(N)</th><th className="text-right">價差(P)</th><th>備註</th>
+                                                <th className="text-right text-indigo">現價(N)</th><th className="text-right">價差(P)</th>
+                                                <th className="text-right">報酬率(Q)</th>
+                                                <th>備註</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -801,6 +844,10 @@
                                                 
                                                 const isMoneyIn = side.includes('賣') || side.includes('息') || side.includes('存');
                                                 const diffColor = tx.totalDiff < 0 ? 'text-red font-bold' : 'text-green';
+                                                
+                                                // 報酬率顏色邏輯: 負數為紅(賺), 正數為綠(賠)
+                                                const returnRateVal = parseFloat(tx.returnRate) || 0;
+                                                const returnRateColor = returnRateVal < 0 ? 'text-red font-bold' : (returnRateVal > 0 ? 'text-green' : 'text-muted');
 
                                                 return (
                                                     <tr key={idx}>
@@ -812,6 +859,7 @@
                                                         <td className={`text-right font-bold ${isMoneyIn ? 'text-red' : 'text-green'}`}>{tx.totalPaid.toLocaleString()}</td>
                                                         <td className="text-right text-indigo font-mono">{tx.sheetCurrentPrice || '-'}</td>
                                                         <td className={`text-right font-mono ${diffColor}`}>{tx.totalDiff ? tx.totalDiff.toLocaleString() : '-'}</td>
+                                                        <td className={`text-right font-mono ${returnRateColor}`}>{tx.returnRate ? tx.returnRate + '%' : '-'}</td>
                                                         <td style={{fontSize:'12px', color:'var(--text-muted)'}}>{tx.note}</td>
                                                     </tr>
                                                 );
