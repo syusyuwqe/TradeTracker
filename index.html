@@ -16,16 +16,21 @@
     <!-- 標準 CSS 樣式表 -->
     <style>
         :root {
-            --bg-dark: #0f172a;       /* slate-900 */
-            --bg-card: #1e293b;       /* slate-800 */
-            --border-color: #334155;  /* slate-700 */
-            --text-main: #f1f5f9;     /* slate-100 */
-            --text-muted: #94a3b8;    /* slate-400 */
-            --accent: #6366f1;        /* indigo-500 */
-            --accent-hover: #4f46e5;  /* indigo-600 */
-            --success: #10b981;       /* green-500 */
-            --danger: #ef4444;        /* red-500 */
-            --warning: #f59e0b;       /* amber-500 */
+            --bg-dark: #09090b;       
+            --bg-card: rgba(24, 24, 27, 0.25); 
+            --border-color: rgba(255, 255, 255, 0.08); 
+            --border-highlight: rgba(255, 255, 255, 0.15);
+            --text-main: #fafafa;     
+            --text-muted: #a1a1aa;    
+            --accent: #6366f1;        
+            --accent-hover: #4f46e5;  
+            --success: #10b981;       
+            --danger: #f43f5e;        
+            --warning: #f59e0b;       
+            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 10px 30px -5px rgba(0, 0, 0, 0.6);
+            --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.2);
+            --glass-blur: blur(32px) saturate(200%);
         }
 
         * { box-sizing: border-box; }
@@ -33,150 +38,188 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-dark);
+            /* 多重光暈背景創造空間感 */
+            background-image: 
+                radial-gradient(circle at 15% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 50% 100%, rgba(244, 63, 94, 0.05) 0%, transparent 40%);
+            background-attachment: fixed;
             color: var(--text-main);
-            padding-bottom: 50px;
+            padding-bottom: 60px;
+            min-height: 100vh;
         }
+
+        /* 動畫設定 */
+        @keyframes floatUp {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .animate-float { animation: floatUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+        .delay-4 { animation-delay: 0.4s; }
 
         /* 導覽列 */
         .navbar {
-            background-color: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(10px);
+            background-color: rgba(9, 9, 11, 0.5);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
             border-bottom: 1px solid var(--border-color);
             position: sticky;
             top: 0;
             z-index: 100;
-            padding: 0.75rem 1.5rem;
+            padding: 0.875rem 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
         }
 
         .brand {
             font-size: 1.25rem;
-            font-weight: bold;
+            font-weight: 800;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.6rem;
+            letter-spacing: -0.02em;
         }
 
-        .nav-buttons {
-            display: flex;
-            gap: 0.5rem;
-        }
+        .nav-buttons { display: flex; gap: 0.5rem; }
 
         .btn {
             background: transparent;
             border: 1px solid transparent;
             color: var(--text-muted);
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.5rem;
             cursor: pointer;
             font-size: 0.875rem;
-            font-weight: 500;
+            font-weight: 600;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn:hover {
             color: var(--text-main);
-            background-color: rgba(255, 255, 255, 0.05);
+            background-color: rgba(255, 255, 255, 0.08);
+            transform: translateY(-1px);
         }
 
         .btn.active {
-            background-color: var(--bg-card);
-            color: var(--accent);
-            border-color: var(--border-color);
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            border-color: var(--border-highlight);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.2);
         }
 
         .btn-primary {
             background-color: var(--accent);
             color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            border: 1px solid rgba(255,255,255,0.1);
         }
         .btn-primary:hover {
             background-color: var(--accent-hover);
-            color: white;
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+            transform: translateY(-1px);
         }
         .btn-primary:disabled {
             background-color: var(--border-color);
+            box-shadow: none;
             cursor: not-allowed;
-            opacity: 0.7;
+            opacity: 0.5;
+            transform: none;
         }
 
         /* 主要容器 */
-        .container {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 1.5rem;
-        }
+        .container { max-width: 1280px; margin: 0 auto; padding: 2rem 1.5rem; }
 
-        /* 卡片樣式 */
+        /* 卡片樣式 (玻璃擬物風) */
         .card {
             background-color: var(--bg-card);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
             border: 1px solid var(--border-color);
-            border-radius: 0.75rem;
-            padding: 1.25rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-radius: 1.25rem;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
         }
 
-        /* 切換器 */
+        /* 切換器 (膠囊設計) */
         .toggle-group {
-            background-color: var(--bg-card);
+            background-color: rgba(0, 0, 0, 0.4);
             border: 1px solid var(--border-color);
             padding: 0.375rem;
-            border-radius: 0.75rem;
+            border-radius: 9999px;
             display: inline-flex;
             gap: 0.25rem;
             margin-bottom: 1rem;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
         }
 
         .toggle-btn {
-            padding: 0.5rem 1.5rem;
-            border-radius: 0.5rem;
+            padding: 0.5rem 1.75rem;
+            border-radius: 9999px;
             border: none;
             background: transparent;
             color: var(--text-muted);
             cursor: pointer;
-            font-weight: bold;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
+        .toggle-btn:hover:not(.active) { color: var(--text-main); }
         .toggle-btn.active {
-            background-color: var(--accent);
+            background-color: rgba(255, 255, 255, 0.12);
             color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.08);
         }
 
+        /* 人員切換 Tabs */
         .persona-tabs {
             display: flex;
             justify-content: center;
-            gap: 0.5rem;
+            gap: 0.75rem;
             margin-top: 0.5rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
         }
 
         .persona-btn {
-            background: var(--bg-dark);
+            background: rgba(0,0,0,0.2);
             border: 1px solid var(--border-color);
             color: var(--text-muted);
-            padding: 0.5rem 1.25rem;
-            border-radius: 9999px;
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
             cursor: pointer;
+            transition: all 0.3s;
+            backdrop-filter: blur(8px);
         }
 
+        .persona-btn:hover { border-color: var(--text-muted); color: var(--text-main); }
         .persona-btn.active {
-            background: var(--border-color);
-            color: white;
-            border-color: var(--text-muted);
+            background: var(--text-main);
+            color: var(--bg-dark);
+            border-color: var(--text-main);
+            box-shadow: 0 0 20px rgba(255,255,255,0.2);
         }
 
         /* 儀表板 Grid */
         .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(1, 1fr);
-            gap: 1rem;
+            gap: 1.25rem;
             margin-top: 1rem;
         }
         @media (min-width: 640px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -184,138 +227,140 @@
 
         .summary-card {
             cursor: pointer;
-            transition: transform 0.1s;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(145deg, rgba(39, 39, 42, 0.4) 0%, rgba(24, 24, 27, 0.2) 100%);
         }
-        .summary-card:active { transform: scale(0.98); }
-        .summary-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
-        .summary-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
-        .summary-value { font-size: 1.5rem; font-weight: 700; color: white; }
+        .summary-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        }
+        .summary-card:hover { 
+            transform: translateY(-4px) scale(1.01); 
+            box-shadow: var(--shadow-glow);
+            border-color: rgba(99, 102, 241, 0.4);
+            background: linear-gradient(145deg, rgba(39, 39, 42, 0.6) 0%, rgba(24, 24, 27, 0.3) 100%);
+        }
+        .summary-card:active { transform: translateY(0) scale(0.98); }
+        .summary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+        .summary-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; }
+        .summary-value { font-size: 1.75rem; font-weight: 800; color: white; letter-spacing: -0.02em; }
+        .summary-icon-wrapper {
+            background: rgba(255,255,255,0.03); 
+            padding: 12px; 
+            border-radius: 12px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.02);
+            transition: all 0.3s ease;
+        }
+        .summary-card:hover .summary-icon-wrapper { background: rgba(255,255,255,0.1); transform: rotate(5deg) scale(1.1); }
+
+        /* Chart Grid Layout */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        @media (min-width: 1024px) {
+            .charts-grid { grid-template-columns: 1fr 1fr; }
+            .chart-full { grid-column: span 2; }
+        }
+
+        .chart-container {
+            height: 400px; display: flex; flexDirection: column; padding: 1.5rem;
+        }
+        .chart-title {
+            text-align: left; margin: 0 0 1.5rem 0; font-weight: 700; color: white; letter-spacing: 0.02em;
+            display: flex; align-items: center; gap: 8px;
+        }
 
         /* 表格樣式 */
         .table-container {
             overflow-x: auto;
-            border-radius: 0.75rem;
+            border-radius: 1rem;
             border: 1px solid var(--border-color);
-            background: rgba(30, 41, 59, 0.5);
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.875rem;
-            white-space: nowrap;
-        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; white-space: nowrap; }
 
         th {
-            background-color: rgba(15, 23, 42, 0.5);
+            background-color: rgba(255, 255, 255, 0.02);
             color: var(--text-muted);
             font-weight: 600;
             text-align: left;
-            padding: 0.75rem 1rem;
+            padding: 1rem;
             text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.75rem;
+            border-bottom: 1px solid var(--border-highlight);
         }
-        th.text-right { text-align: right; }
-
-        td {
-            padding: 0.75rem 1rem;
-            border-top: 1px solid var(--border-color);
-            color: var(--text-muted);
-        }
-        
-        tr:hover td {
-            background-color: rgba(51, 65, 85, 0.3);
-            color: var(--text-main);
-        }
+        td { padding: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.03); color: var(--text-main); transition: background 0.2s; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background-color: rgba(255, 255, 255, 0.05); }
 
         .text-right { text-align: right; }
         .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-        .font-bold { font-weight: bold; }
-        
-        /* 顏色工具類 */
+        .font-bold { font-weight: 700; }
         .text-red { color: var(--danger); }
         .text-green { color: var(--success); }
-        .text-blue { color: #60a5fa; }
-        .text-indigo { color: #a5b4fc; }
-        .bg-indigo-light { background-color: rgba(99, 102, 241, 0.1); color: #a5b4fc; }
+        .text-indigo { color: #818cf8; }
 
         /* Badge */
-        .badge {
-            padding: 0.125rem 0.5rem;
-            border-radius: 0.25rem;
-            font-size: 0.75rem;
-            font-weight: bold;
-        }
-        .badge-buy { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
-        .badge-sell { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
-        .badge-dep { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
-        .badge-div { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+        .badge { padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; }
+        .badge-buy { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
+        .badge-sell { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.2); }
+        .badge-dep { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.2); }
+        .badge-div { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); }
 
-        /* Modal */
+        /* Modal & Form Inputs */
         .modal-backdrop {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(4px);
-            z-index: 200;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 200;
+            display: flex; align-items: center; justify-content: center; padding: 1rem;
         }
         .modal-content {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            width: 100%;
-            max-width: 400px;
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            position: relative;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            background: #18181b; border: 1px solid var(--border-highlight);
+            width: 100%; max-width: 420px; border-radius: 1.25rem; padding: 1.75rem;
+            position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
         .close-btn {
-            position: absolute; top: 1rem; right: 1rem;
-            background: none; border: none; color: var(--text-muted);
-            cursor: pointer; font-size: 1.25rem;
+            position: absolute; top: 1.25rem; right: 1.25rem;
+            background: rgba(255,255,255,0.05); border: none; color: var(--text-muted);
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.25rem;
+            transition: all 0.2s;
         }
+        .close-btn:hover { background: rgba(255,255,255,0.15); color: white; transform: rotate(90deg); }
 
-        /* 輸入框 */
-        .input-group { position: relative; width: 100%; }
         .form-input {
-            width: 100%;
-            background: #0f172a;
-            border: 1px solid var(--border-color);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            outline: none;
+            width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color);
+            color: white; padding: 0.75rem 1.25rem; border-radius: 0.75rem; outline: none;
+            transition: all 0.3s; font-size: 0.875rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
         }
-        .form-input:focus { border-color: var(--accent); }
+        .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2), inset 0 2px 4px rgba(0,0,0,0.2); background: rgba(0,0,0,0.5); }
 
-        /* 公式說明區 */
-        .formula-box {
-            background: rgba(15, 23, 42, 0.8);
-            border-top: 1px solid var(--border-color);
-            padding: 0.75rem;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 0.5rem;
-        }
-        @media (min-width: 768px) { .formula-box { grid-template-columns: 1fr 1fr 1fr; } }
-        
-        .formula-item { display: flex; align-items: center; gap: 0.5rem; }
-        .dot { width: 6px; height: 6px; background: var(--border-color); border-radius: 50%; }
-
-        /* Spinner */
         .spinner {
-            border: 2px solid rgba(255,255,255,0.1);
-            border-left-color: white;
-            border-radius: 50%;
-            width: 16px; height: 16px;
-            animation: spin 1s linear infinite;
+            border: 2px solid rgba(255,255,255,0.1); border-left-color: white;
+            border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-
+        
+        /* 圖表自訂工具提示框背景 */
+        .custom-tooltip {
+            background: rgba(24, 24, 27, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            color: #fff;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -323,17 +368,10 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
-        const { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } = Recharts;
+        const { AreaChart, Area, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } = Recharts;
 
         const Icon = ({ path, size = 20, className = "" }) => (
-            <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width={size} height={size} 
-                viewBox="0 0 24 24" 
-                fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                className={className}
-                style={{ display: 'inline-block', verticalAlign: 'middle' }}
-            >
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={{ display: 'inline-block', verticalAlign: 'middle' }}>
                 {path}
             </svg>
         );
@@ -351,15 +389,32 @@
             trendUp: <><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
             briefcase: <><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>,
             users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
-            close: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+            close: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+            activity: <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></>
         };
 
-        const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1'];
+        const CustomTooltip = ({ active, payload, label }) => {
+            if (active && payload && payload.length) {
+                return (
+                    <div className="custom-tooltip">
+                        <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#a1a1aa' }}>{label}</p>
+                        {payload.map((entry, index) => (
+                            <p key={index} style={{ margin: '4px 0', color: entry.color || '#fff' }}>
+                                {entry.name}: <span className="font-mono">${Number(entry.value).toLocaleString()}</span>
+                            </p>
+                        ))}
+                    </div>
+                );
+            }
+            return null;
+        };
 
         const App = () => {
             const [activeTab, setActiveTab] = useState('dashboard');
             const [sheetUrl, setSheetUrl] = useState('https://docs.google.com/spreadsheets/d/e/2PACX-1vTZITzZ-p9NUFBGXrFA_0hjrjhpGnQJob9w8qFvwlrR-jAggJcsHji2CO9WS29R_-E3F9BKB_S9y5uz/pub?gid=0&single=true&output=csv');
+            const [realizedSheetUrl, setRealizedSheetUrl] = useState('https://docs.google.com/spreadsheets/d/e/2PACX-1vTZITzZ-p9NUFBGXrFA_0hjrjhpGnQJob9w8qFvwlrR-jAggJcsHji2CO9WS29R_-E3F9BKB_S9y5uz/pub?gid=1461679971&single=true&output=csv');
             const [transactions, setTransactions] = useState([]);
+            const [realizedData, setRealizedData] = useState({ fu: [], xu: [] });
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
             const [useProxy, setUseProxy] = useState(false);
@@ -370,9 +425,8 @@
             const [dashboardView, setDashboardView] = useState('total'); 
             const [selectedPersona, setSelectedPersona] = useState('fu'); 
             const [helpModal, setHelpModal] = useState(null);
-            const [refreshStatus, setRefreshStatus] = useState(''); // 顯示重試狀態
 
-            // CSV Parsing Logic
+            // CSV 解析邏輯
             const parseCSVLine = (text) => {
                 const result = [];
                 let cell = '';
@@ -387,330 +441,229 @@
                 return result;
             };
 
-            // 改為回傳資料，而非直接設定 State
+            const cleanNumber = (val) => {
+                if (!val) return 0;
+                const cleanStr = val.toString().replace(/,/g, '').replace(/"/g, '').replace(/\$/g, '').replace(/NT/g, '').replace(/nt/g, '').trim();
+                if (['#N/A', '#VALUE!', '#ERROR!', 'Loading...', '手動輸入', '-'].includes(cleanStr)) return 0;
+                const num = parseFloat(cleanStr);
+                return isNaN(num) ? 0 : num;
+            };
+
+            const parseRealizedCSV = (csvText) => {
+                const lines = csvText.trim().split('\n');
+                const fuData = [], xuData = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const values = parseCSVLine(lines[i]);
+                    if (values.length < 8) continue;
+                    const fuSymbol = values[0]?.replace(/"/g, '').trim();
+                    if (fuSymbol) fuData.push({ symbol: fuSymbol, name: values[1]?.replace(/"/g, '').trim() || '', shares: cleanNumber(values[2]), avgBuyPrice: cleanNumber(values[3]), netSell: cleanNumber(values[4]), cost: cleanNumber(values[5]), realizedPnL: cleanNumber(values[6]), returnRate: values[7]?.replace(/"/g, '').trim() || '0%' });
+                    const xuSymbol = values[9]?.replace(/"/g, '').trim();
+                    if (xuSymbol) xuData.push({ symbol: xuSymbol, name: values[10]?.replace(/"/g, '').trim() || '', shares: cleanNumber(values[11]), avgBuyPrice: cleanNumber(values[12]), netSell: cleanNumber(values[13]), cost: cleanNumber(values[14]), realizedPnL: cleanNumber(values[15]), returnRate: values[16]?.replace(/"/g, '').trim() || '0%' });
+                }
+                return { fu: fuData, xu: xuData };
+            };
+
             const parseCSVReturningData = (csvText) => {
                 try {
                     const lines = csvText.trim().split('\n');
                     if (lines.length < 2) throw new Error('CSV 內容過短或為空');
-
-                    const parsedTransactions = lines.slice(1).map((line, index) => {
+                    return lines.slice(1).map((line, index) => {
                         const values = parseCSVLine(line);
-                        const cleanNumber = (val) => {
-                            if (!val) return 0;
-                            const cleanStr = val.toString().replace(/,/g, '').replace(/"/g, '').replace(/\$/g, '').replace(/NT/g, '').replace(/nt/g, '').trim();
-                            if (['#N/A', '#VALUE!', '#ERROR!', 'Loading...', '手動輸入', '-'].includes(cleanStr)) return 0;
-                            const num = parseFloat(cleanStr);
-                            return isNaN(num) ? 0 : num;
-                        };
-
                         if (values.length < 10) return null;
-
                         const shares = cleanNumber(values[3]);
                         const price = cleanNumber(values[4]);
-                        const fx = values[5] ? cleanNumber(values[5]) : 1;
-                        const amountG = values[6] ? cleanNumber(values[6]) : (shares * price);
-                        const feeH = values[7] ? cleanNumber(values[7]) : 0;
-                        const taxI = values[8] ? cleanNumber(values[8]) : 0;
                         const totalK = values[10] ? cleanNumber(values[10]) : 0;
-                        const sideRaw = values[12] ? values[12].replace(/"/g, '').trim() : '';
-                        
-                        // New fields: P column (15) and Q column (16), R column (17)
-                        const totalDiffP = values[15] ? cleanNumber(values[15]) : 0;
-                        const returnRateQ = values[16] ? cleanNumber(values[16]) : 0;
-                        const marketValueR = values[17] ? cleanNumber(values[17]) : 0;
-
                         return {
                             id: values[0]?.replace(/"/g, '') || `row-${index}`,
                             symbol: values[1]?.replace(/"/g, '').trim() || '',
                             date: values[2]?.replace(/"/g, '').trim(),
-                            shares: shares,
-                            price: price,
-                            fx: fx,
-                            amountG: amountG,
-                            feeH: feeH,
-                            taxI: taxI,
-                            totalK: totalK,
-                            totalPaid: totalK, 
+                            shares, price, fx: values[5] ? cleanNumber(values[5]) : 1,
+                            amountG: values[6] ? cleanNumber(values[6]) : (shares * price),
+                            feeH: values[7] ? cleanNumber(values[7]) : 0,
+                            taxI: values[8] ? cleanNumber(values[8]) : 0,
+                            totalK, totalPaid: totalK, 
                             note: values[11]?.replace(/"/g, '').trim() || '', 
-                            side: sideRaw,
+                            side: values[12] ? values[12].replace(/"/g, '').trim() : '',
                             sheetCurrentPrice: values[13] ? cleanNumber(values[13]) : 0,
-                            unitDiff: values[14] ? cleanNumber(values[14]) : 0,
-                            totalDiff: totalDiffP, // P column (Unrealized P&L from sheet)
-                            returnRate: returnRateQ, // Q column (Return Rate from sheet)
-                            marketValueR: marketValueR // R column (Market Value from sheet)
+                            totalDiff: values[15] ? cleanNumber(values[15]) : 0, 
+                            returnRate: values[16] ? cleanNumber(values[16]) : 0, 
+                            marketValueR: values[17] ? cleanNumber(values[17]) : 0 
                         };
                     }).filter(item => item !== null && (item.symbol !== '' || item.side !== '' || item.totalPaid !== 0));
-
-                    if (parsedTransactions.length === 0) throw new Error('解析成功但無有效交易資料');
-                    return parsedTransactions;
-                } catch (err) {
-                    console.error(err);
-                    throw err; // 拋出錯誤讓外層捕捉
-                }
+                } catch (err) { throw err; }
             };
 
-            const fetchGoogleSheet = async (url, forceProxy = false, retryCount = 0) => {
-                const targetUrl = url || sheetUrl;
-                if (!targetUrl) return;
-                
-                // 只在第一次或手動點擊時顯示 Loading，背景重試時不蓋住畫面
-                if (retryCount === 0) setLoading(true);
-                if (retryCount > 0) setRefreshStatus(`同步中... (${retryCount}/5)`);
-                
-                setError(null);
-                
-                let fetchUrl = targetUrl;
-                if (!targetUrl.includes('output=csv') && !targetUrl.includes('pub?')) {
-                    const match = targetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            const fetchSheetData = async (url, forceProxy, parser, setter) => {
+                if (!url) return;
+                let fetchUrl = url;
+                if (!url.includes('output=csv') && !url.includes('pub?')) {
+                    const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
                     if (match) fetchUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
                 }
-
                 const timestamp = new Date().getTime();
-                const separator = fetchUrl.includes('?') ? '&' : '?';
-                fetchUrl = `${fetchUrl}${separator}_t=${timestamp}`;
-
-                if (forceProxy || useProxy) {
-                    fetchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fetchUrl)}&_t=${timestamp}`;
-                }
+                fetchUrl = `${fetchUrl}${fetchUrl.includes('?') ? '&' : '?'}_t=${timestamp}`;
+                if (forceProxy || useProxy) fetchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fetchUrl)}&_t=${timestamp}`;
                 
+                const response = await fetch(fetchUrl);
+                if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
+                const text = await response.text();
+                if (text.trim().startsWith('<!DOCTYPE html>')) throw new Error('讀取到網頁而非 CSV');
+                setter(parser(text));
+            };
+
+            const loadAllData = async (forceProxy = false) => {
+                setLoading(true); setError(null);
                 try {
-                    const response = await fetch(fetchUrl);
-                    if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
-                    const text = await response.text();
-                    if (text.trim().startsWith('<!DOCTYPE html>')) throw new Error('讀取到網頁而非 CSV');
-                    
-                    const parsedData = parseCSVReturningData(text);
-                    
-                    // --- Auto-Retry Logic ---
-                    // 檢查是否有「持有中」的股票 (股數>0) 但是現價為 0 (代表 Sheet 還在 Loading)
-                    const hasMissingData = parsedData.some(t => 
-                        t.symbol && 
-                        t.shares > 0 && 
-                        t.side.includes('買') && 
-                        (t.sheetCurrentPrice === 0 || t.sheetCurrentPrice === undefined)
-                    );
-
-                    setTransactions(parsedData); // 先顯示抓到的資料 (即使不完整)
-
-                    if (hasMissingData && retryCount < 5) {
-                        console.log(`發現缺漏資料，將於 1.5 秒後重試... (第 ${retryCount + 1} 次)`);
-                        setTimeout(() => {
-                            fetchGoogleSheet(url, forceProxy, retryCount + 1);
-                        }, 1500); // 1.5秒後重試
-                    } else {
-                        setLoading(false);
-                        setRefreshStatus('');
-                    }
-
-                    if (activeTab === 'import') setActiveTab('dashboard');
+                    await fetchSheetData(sheetUrl, forceProxy, parseCSVReturningData, setTransactions);
+                    if (realizedSheetUrl) await fetchSheetData(realizedSheetUrl, forceProxy, parseRealizedCSV, setRealizedData);
+                    setLoading(false);
                 } catch (err) {
-                    if (!forceProxy && !useProxy && retryCount === 0) {
+                    if (!forceProxy && !useProxy) {
                         setUseProxy(true);
-                        fetchGoogleSheet(url, true, 0);
+                        loadAllData(true);
                     } else {
                         setError(err.message + (useProxy ? " (已嘗試救援模式)" : ""));
                         setLoading(false);
-                        setRefreshStatus('');
                     }
                 }
             };
 
-            useEffect(() => {
-                if (sheetUrl) fetchGoogleSheet(sheetUrl);
-            }, []);
+            useEffect(() => { loadAllData(); }, []);
 
-            // Calculation Logic
-            const { portfolio, summary } = useMemo(() => {
-                
-                // --- Helper Function: Calculate Data for ONE Persona ---
-                const calculatePersonaData = (persona) => {
-                    const holdings = {};
-                    let totalDeposits = 0;
-                    let cashBalance = 0;
-                    const priceMap = {};
-
-                    // 1. Filter transactions
-                    const targetTx = transactions.filter(t => {
-                        const note = (t.note || '').toLowerCase();
-                        if (persona === 'fu') return note.includes('父');
-                        if (persona === 'xu') return note.includes('旭');
-                        if (persona === 'gong') return note.includes('公');
-                        return false;
-                    }).sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                    // 2. Process transactions
-                    targetTx.forEach(tx => {
-                        const side = (tx.side || '').toLowerCase();
-                        const sym = tx.symbol;
-                        const absTotalK = Math.abs(tx.totalK);
-
-                        // Cash & Deposits
-                        if (side.includes('存') || side.includes('入')) {
-                            cashBalance += absTotalK;
-                            totalDeposits += absTotalK;
-                        } else if (side.includes('買')) {
-                            cashBalance -= absTotalK;
-                            const fx = tx.fx || 1;
-                            const cost = (tx.amountG + tx.feeH) * fx - tx.taxI;
-                            if (sym) {
-                                if (!holdings[sym]) holdings[sym] = { symbol: sym, totalShares: 0, totalCost: 0, csvTotalDiff: 0, csvMarketValueR: 0 };
-                                holdings[sym].totalShares += tx.shares;
-                                holdings[sym].totalCost += cost;
-                                holdings[sym].csvTotalDiff += tx.totalDiff; 
-                                if (tx.marketValueR) holdings[sym].csvMarketValueR += tx.marketValueR;
-                            }
-                        } else if (side.includes('賣')) {
-                            cashBalance += absTotalK;
-                            if (sym && holdings[sym] && holdings[sym].totalShares > 0) {
-                                const avgCost = holdings[sym].totalCost / holdings[sym].totalShares;
-                                const sellRatio = tx.shares / holdings[sym].totalShares;
-                                holdings[sym].csvTotalDiff -= (holdings[sym].csvTotalDiff * sellRatio);
-                                holdings[sym].csvMarketValueR -= (holdings[sym].csvMarketValueR * sellRatio);
-                                holdings[sym].totalShares -= tx.shares;
-                                holdings[sym].totalCost -= (tx.shares * avgCost);
-                            }
-                        } else if (side.includes('息')) {
-                            cashBalance += absTotalK;
-                            if (sym && holdings[sym]) holdings[sym].totalCost -= absTotalK;
-                        }
-
-                        // Price Map Update
-                        if (sym && tx.sheetCurrentPrice > 0) priceMap[sym] = tx.sheetCurrentPrice;
-
-                        // Cleanup zero holdings
-                        if (sym && holdings[sym] && holdings[sym].totalShares < 0.0001) {
-                            holdings[sym].totalShares = 0;
-                            holdings[sym].totalCost = 0;
-                            holdings[sym].csvTotalDiff = 0;
-                            holdings[sym].csvMarketValueR = 0;
-                        }
-                    });
-
-                    // Rule: Xu cash = 0
-                    if (persona === 'xu') cashBalance = 0;
-
-                    // 3. Summarize this persona
-                    let pMarketValue = 0;
-                    let pCost = 0;
-                    let pGainLoss = 0;
-
-                    Object.values(holdings).forEach(h => {
-                        if (h.totalShares <= 0) return;
-                        // Market Value Priority: R Column > PriceMap * Shares
-                        let mv = h.csvMarketValueR;
-                        if (!mv || mv === 0) {
-                            mv = (priceMap[h.symbol] || 0) * h.totalShares;
-                        }
-                        pMarketValue += mv;
-                        pCost += h.totalCost;
-                        pGainLoss += h.csvTotalDiff; // P Column Sum
-                    });
-
-                    return {
-                        holdings,
-                        summary: {
-                            totalMarketValue: pMarketValue,
-                            totalCost: pCost,
-                            totalGainLoss: pGainLoss,
-                            totalDeposits,
-                            cashBalance
-                        }
-                    };
-                };
-
-                // --- MAIN SWITCH ---
-                let finalSummary = { totalMarketValue: 0, totalCost: 0, totalGainLoss: 0, totalReturnRate: 0, totalDeposits: 0, cashBalance: 0 };
-                let finalHoldings = {};
-
+            // 核心資料計算與圖表資料生成
+            const { portfolio, summary, timelineData, pnlChartData } = useMemo(() => {
+                let targetTx = transactions;
                 if (dashboardView === 'personal') {
-                    const data = calculatePersonaData(selectedPersona);
-                    finalSummary = { ...data.summary };
-                    finalHoldings = data.holdings;
+                    targetTx = transactions.filter(t => (t.note || '').toLowerCase().includes(selectedPersona === 'fu' ? '父' : '旭'));
                 } else {
-                    // Total View: Sum of 3 personas
-                    const fu = calculatePersonaData('fu');
-                    const xu = calculatePersonaData('xu');
-                    const gong = calculatePersonaData('gong');
-
-                    // Strict Summation
-                    finalSummary.totalMarketValue = fu.summary.totalMarketValue + xu.summary.totalMarketValue + gong.summary.totalMarketValue;
-                    finalSummary.totalCost = fu.summary.totalCost + xu.summary.totalCost + gong.summary.totalCost;
-                    finalSummary.totalGainLoss = fu.summary.totalGainLoss + xu.summary.totalGainLoss + gong.summary.totalGainLoss;
-                    finalSummary.totalDeposits = fu.summary.totalDeposits + xu.summary.totalDeposits + gong.summary.totalDeposits;
-                    finalSummary.cashBalance = fu.summary.cashBalance + xu.summary.cashBalance + gong.summary.cashBalance;
-
-                    // Merge holdings for Chart display (approximation)
-                    // We iterate all 3 holdings lists and merge them into finalHoldings
-                    [fu, xu, gong].forEach(p => {
-                        Object.values(p.holdings).forEach(h => {
-                            if (!finalHoldings[h.symbol]) {
-                                finalHoldings[h.symbol] = { ...h };
-                            } else {
-                                finalHoldings[h.symbol].totalShares += h.totalShares;
-                                finalHoldings[h.symbol].totalCost += h.totalCost;
-                                finalHoldings[h.symbol].csvTotalDiff += h.csvTotalDiff;
-                                finalHoldings[h.symbol].csvMarketValueR += h.csvMarketValueR;
-                            }
-                        });
+                    targetTx = transactions.filter(t => {
+                        const note = (t.note || '').toLowerCase();
+                        return note.includes('父') || note.includes('旭');
                     });
                 }
+                
+                // 照日期排序，準備給圖表用
+                const sortedTx = [...targetTx].sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                // --- 1. 計算目前的投資組合 (Holdings) ---
+                const holdings = {};
+                let totalDeposits = 0;
+                let cashBalance = 0;
+                const priceMap = {};
 
-                // Final Return Rate
-                finalSummary.totalReturnRate = (finalSummary.totalCost > 0) 
-                    ? (finalSummary.totalGainLoss / finalSummary.totalCost) * 100 
-                    : 0;
+                sortedTx.forEach(tx => {
+                    const side = (tx.side || '').toLowerCase();
+                    const sym = tx.symbol;
+                    const absK = Math.abs(tx.totalK);
 
-                // Prepare List for Table/Charts
-                const portfolioArray = Object.values(finalHoldings)
-                    .filter(h => h.totalShares > 0)
-                    .map(h => {
-                        let marketValue = h.csvMarketValueR;
-                        // Fallback logic for display consistency (though summary uses its own calc)
-                        if (!marketValue || marketValue === 0) {
-                             // Note: priceMap is lost in merge, but for chart display approx is fine.
-                             // To be precise we should have merged priceMap too, but R column is primary now.
-                             // If R is missing in Total view, it might show 0 here if we don't have price.
-                             // But most rows have R.
-                             marketValue = 0; 
+                    if (side.includes('存') || side.includes('入')) {
+                        cashBalance += absK; totalDeposits += absK;
+                    } else if (side.includes('買')) {
+                        cashBalance -= absK;
+                        const cost = (tx.amountG + tx.feeH) * (tx.fx || 1) - tx.taxI;
+                        if (sym) {
+                            if (!holdings[sym]) holdings[sym] = { symbol: sym, totalShares: 0, totalCost: 0, csvTotalDiff: 0, csvMarketValueR: 0 };
+                            holdings[sym].totalShares += tx.shares; holdings[sym].totalCost += cost;
+                            holdings[sym].csvTotalDiff += tx.totalDiff; 
+                            if (tx.marketValueR) holdings[sym].csvMarketValueR += tx.marketValueR;
                         }
-                        
-                        return {
-                            name: h.symbol,
-                            ...h,
-                            marketValue: marketValue,
-                            gainLoss: h.csvTotalDiff,
-                            gainLossPercent: (h.totalCost > 0) ? (h.csvTotalDiff / h.totalCost) * 100 : 0
-                        };
-                    })
-                    .sort((a, b) => b.marketValue - a.marketValue);
+                    } else if (side.includes('賣')) {
+                        cashBalance += absK;
+                        if (sym && holdings[sym] && holdings[sym].totalShares > 0) {
+                            const sellRatio = tx.shares / holdings[sym].totalShares;
+                            holdings[sym].csvTotalDiff -= (holdings[sym].csvTotalDiff * sellRatio);
+                            holdings[sym].csvMarketValueR -= (holdings[sym].csvMarketValueR * sellRatio);
+                            holdings[sym].totalShares -= tx.shares;
+                            holdings[sym].totalCost -= (tx.shares * (holdings[sym].totalCost / holdings[sym].totalShares));
+                        }
+                    } else if (side.includes('息')) {
+                        cashBalance += absK;
+                        if (sym && holdings[sym]) holdings[sym].totalCost -= absK;
+                    }
 
-                return {
-                    portfolio: portfolioArray,
-                    summary: finalSummary
+                    if (sym && tx.sheetCurrentPrice > 0) priceMap[sym] = tx.sheetCurrentPrice;
+                    if (sym && holdings[sym] && holdings[sym].totalShares < 0.0001) {
+                        holdings[sym].totalShares = holdings[sym].totalCost = holdings[sym].csvTotalDiff = holdings[sym].csvMarketValueR = 0;
+                    }
+                });
+
+                if (dashboardView === 'personal' && selectedPersona === 'xu') cashBalance = 0;
+                if (dashboardView === 'total') {
+                    // 若為總投資，扣除掉父的現金結餘(因為合併計算時旭沒現金)
+                    // 為了簡化，總覽的現金等於父的現金結餘。
+                    const xuTx = transactions.filter(t => (t.note || '').toLowerCase().includes('旭'));
+                    let xuCash = 0;
+                    xuTx.forEach(tx => {
+                        const side = (tx.side || '').toLowerCase();
+                        if(side.includes('存')||side.includes('入')||side.includes('賣')||side.includes('息')) xuCash += Math.abs(tx.totalK);
+                        else if(side.includes('買')) xuCash -= Math.abs(tx.totalK);
+                    });
+                    cashBalance -= xuCash; // 把旭的虛擬現金扣除
+                }
+
+                let pMarketValue = 0, pCost = 0, pGainLoss = 0;
+                const portfolioArray = Object.values(holdings).filter(h => h.totalShares > 0).map(h => {
+                    let mv = h.csvMarketValueR || ((priceMap[h.symbol] || 0) * h.totalShares);
+                    pMarketValue += mv; pCost += h.totalCost; pGainLoss += h.csvTotalDiff; 
+                    return { name: h.symbol, ...h, marketValue: mv, gainLoss: h.csvTotalDiff, gainLossPercent: h.totalCost > 0 ? (h.csvTotalDiff / h.totalCost) * 100 : 0 };
+                }).sort((a, b) => b.marketValue - a.marketValue);
+
+                const finalSummary = {
+                    totalMarketValue: pMarketValue, totalCost: pCost, totalGainLoss: pGainLoss, totalDeposits, cashBalance,
+                    totalReturnRate: pCost > 0 ? (pGainLoss / pCost) * 100 : 0
                 };
+
+                // --- 2. 準備時間軸與密度圖資料 (Timeline & Activity) ---
+                let cumDepositTime = 0;
+                const monthlyData = {};
+                
+                sortedTx.forEach(tx => {
+                    if (!tx.date) return;
+                    const d = new Date(tx.date);
+                    if (isNaN(d.getTime())) return;
+                    // YYYY-MM 格式
+                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    if (!monthlyData[monthKey]) {
+                        monthlyData[monthKey] = { month: monthKey, deposit: cumDepositTime, tradeVol: 0 };
+                    }
+                    
+                    const side = (tx.side || '').toLowerCase();
+                    const absK = Math.abs(tx.totalK);
+                    
+                    if (side.includes('存') || side.includes('入')) {
+                        cumDepositTime += absK;
+                    } else if (side.includes('買') || side.includes('賣')) {
+                        monthlyData[monthKey].tradeVol += absK;
+                    }
+                    monthlyData[monthKey].deposit = cumDepositTime;
+                });
+                
+                const timelineArray = Object.values(monthlyData).sort((a,b) => a.month.localeCompare(b.month));
+
+                // --- 3. 準備商品損益排行圖資料 (地雷王) ---
+                const pnlArray = [...portfolioArray]
+                    .sort((a, b) => b.gainLoss - a.gainLoss) // 由盈到虧
+                    .map(i => ({ name: i.symbol, gainLoss: Math.round(i.gainLoss), fill: i.gainLoss > 0 ? 'var(--success)' : 'var(--danger)' }));
+
+                return { portfolio: portfolioArray, summary: finalSummary, timelineData: timelineArray, pnlChartData: pnlArray };
 
             }, [transactions, dashboardView, selectedPersona]);
 
+            // 表格篩選
             const filteredTransactions = useMemo(() => {
                 let filtered = transactions.filter(t => {
-                    const matchesSearch = 
-                        (t.symbol && t.symbol.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                        (t.side && t.side.includes(searchTerm)) ||
-                        (t.date && t.date.includes(searchTerm)) ||
-                        (t.note && t.note.includes(searchTerm));
+                    const search = searchTerm.toLowerCase();
+                    const matchesSearch = (t.symbol||'').toLowerCase().includes(search) || (t.side||'').includes(search) || (t.date||'').includes(search) || (t.note||'').toLowerCase().includes(search);
                     if (!matchesSearch) return false;
+                    
                     const side = (t.side || '').toLowerCase();
                     if (filterType === 'trade') {
-                        const isTrade = side.includes('買') || side.includes('賣') || side.includes('buy') || side.includes('sell') || side.includes('股息');
-                        if (!isTrade) return false;
-                        if (subFilterType !== 'all') {
-                            const note = t.note || '';
-                            if (subFilterType === 'fu' && !note.includes('父')) return false;
-                            if (subFilterType === 'xu' && !note.includes('旭')) return false;
-                            if (subFilterType === 'gong' && !note.includes('公')) return false;
-                        }
+                        if (!(side.includes('買') || side.includes('賣'))) return false;
+                        if (subFilterType === 'fu' && !(t.note||'').includes('父')) return false;
+                        if (subFilterType === 'xu' && !(t.note||'').includes('旭')) return false;
                     } else if (filterType === 'deposit') {
-                        return side.includes('存入') || side.includes('入金') || side.includes('deposit');
+                        if (!(side.includes('存') || side.includes('入'))) return false;
                     }
                     return true;
                 });
@@ -718,27 +671,31 @@
                 filtered.sort((a, b) => {
                     if (sortOrder === 'date-desc') return new Date(b.date) - new Date(a.date);
                     if (sortOrder === 'date-asc') return new Date(a.date) - new Date(b.date);
-                    if (sortOrder === 'diff-desc') return b.totalDiff - a.totalDiff;
-                    if (sortOrder === 'diff-asc') return a.totalDiff - b.totalDiff;
                     return 0;
                 });
                 return filtered;
             }, [transactions, searchTerm, filterType, subFilterType, sortOrder]);
 
-            const chartDataPie = portfolio.map(i => ({ name: i.symbol, value: i.marketValue }));
-            const chartDataBar = portfolio.map(i => ({ name: i.symbol, value: Math.round(i.gainLoss) }));
+            const currentRealizedData = realizedData[selectedPersona] || [];
+            const realizedTotals = useMemo(() => {
+                const totals = currentRealizedData.reduce((acc, curr) => {
+                    acc.netSell += curr.netSell; acc.cost += curr.cost; acc.realizedPnL += curr.realizedPnL; return acc;
+                }, { netSell: 0, cost: 0, realizedPnL: 0 });
+                return { ...totals, returnRate: totals.cost > 0 ? (totals.realizedPnL / totals.cost) * 100 : 0 };
+            }, [currentRealizedData]);
+
 
             return (
                 <div className="app-container">
-                    {/* Modal */}
+                    {/* 提示對話框 */}
                     {helpModal && (
                         <div className="modal-backdrop" onClick={() => setHelpModal(null)}>
                             <div className="modal-content" onClick={e => e.stopPropagation()}>
                                 <button className="close-btn" onClick={() => setHelpModal(null)}><Icon path={ICONS.close}/></button>
-                                <h3 style={{marginTop:0, display:'flex', alignItems:'center', gap:'8px'}}>
+                                <h3 style={{marginTop:0, display:'flex', alignItems:'center', gap:'10px', fontSize: '1.25rem'}}>
                                     <span style={{color: 'var(--accent)'}}><Icon path={ICONS.info}/></span> {helpModal.title}
                                 </h3>
-                                <div style={{whiteSpace: 'pre-line', lineHeight: '1.6', fontSize: '14px', color: 'var(--text-muted)'}}>
+                                <div style={{whiteSpace: 'pre-line', lineHeight: '1.7', fontSize: '0.95rem', color: 'var(--text-muted)'}}>
                                     {helpModal.content}
                                 </div>
                             </div>
@@ -746,9 +703,11 @@
                     )}
 
                     {/* Navbar */}
-                    <nav className="navbar">
+                    <nav className="navbar animate-float">
                         <div className="brand">
-                            <span style={{ background: 'var(--accent)', borderRadius: '6px', padding: '4px', display:'flex' }}><Icon path={ICONS.chart} size={18}/></span>
+                            <span style={{ background: 'linear-gradient(135deg, var(--accent), #8b5cf6)', borderRadius: '10px', padding: '6px', display:'flex', color:'white', boxShadow: '0 2px 10px rgba(99,102,241,0.4)' }}>
+                                <Icon path={ICONS.chart} size={20}/>
+                            </span>
                             TradeTracker
                         </div>
                         <div className="nav-buttons">
@@ -760,166 +719,218 @@
 
                     <main className="container">
                         {error && (
-                            <div style={{background: 'rgba(239, 68, 68, 0.2)', border: '1px solid var(--danger)', color: '#fca5a5', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1.5rem'}}>
-                                <strong>讀取失敗:</strong> {error}
-                                <div style={{marginTop: '0.5rem'}}>
-                                    <button onClick={() => fetchGoogleSheet(sheetUrl, true)} className="btn btn-primary" style={{fontSize: '12px'}}>嘗試救援模式</button>
-                                </div>
+                            <div className="animate-float" style={{background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--danger)', color: '#fda4af', padding: '1rem 1.5rem', borderRadius: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(10px)'}}>
+                                <div><strong style={{display: 'block', marginBottom: '0.25rem'}}>讀取失敗:</strong> <span style={{fontSize: '0.9rem'}}>{error}</span></div>
+                                <button onClick={() => loadAllData(true)} className="btn btn-primary" style={{fontSize: '0.8rem', padding: '0.5rem 1rem'}}>嘗試救援</button>
                             </div>
                         )}
 
                         {activeTab === 'dashboard' && (
-                            <div>
-                                <div style={{textAlign: 'center', marginBottom: '1rem'}}>
+                            <div className="animate-float">
+                                <div style={{textAlign: 'center', marginBottom: '1.5rem'}}>
                                     <div className="toggle-group">
                                         <button className={`toggle-btn ${dashboardView === 'total' ? 'active' : ''}`} onClick={() => setDashboardView('total')}><Icon path={ICONS.briefcase}/> 總投資</button>
                                         <button className={`toggle-btn ${dashboardView === 'personal' ? 'active' : ''}`} onClick={() => { setDashboardView('personal'); if(selectedPersona === 'all') setSelectedPersona('fu'); }}><Icon path={ICONS.users}/> 個人歸戶</button>
+                                        <button className={`toggle-btn ${dashboardView === 'realized' ? 'active' : ''}`} onClick={() => { setDashboardView('realized'); if(selectedPersona === 'all') setSelectedPersona('fu'); }}><Icon path={ICONS.money}/> 淨收益</button>
                                     </div>
-                                    {dashboardView === 'personal' && (
+                                    {(dashboardView === 'personal' || dashboardView === 'realized') && (
                                         <div className="persona-tabs">
-                                            {['fu', 'xu', 'gong'].map(p => (
+                                            {['fu', 'xu'].map(p => (
                                                 <button key={p} className={`persona-btn ${selectedPersona === p ? 'active' : ''}`} onClick={() => setSelectedPersona(p)}>
-                                                    {p === 'fu' ? '父' : p === 'xu' ? '旭' : '公'}
+                                                    {p === 'fu' ? '父 (Main)' : '旭 (Sub)'}
                                                 </button>
                                             ))}
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="dashboard-grid">
-                                    <SummaryCard title="目前市值" value={Math.round(summary.totalMarketValue).toLocaleString()} icon={ICONS.money} 
-                                        onClick={() => setHelpModal({title: '目前市值', content: 'Sheet R欄 (若無則用 N欄 × D欄)'})}/>
-                                    <SummaryCard title="總成本 (本金)" value={Math.round(summary.totalCost).toLocaleString()} icon={ICONS.upload} 
-                                        onClick={() => setHelpModal({title: '總成本', content: '買入: (成交金額+手續費)*匯率 - 交易稅'})}/>
-                                    <SummaryCard title="未實現損益" value={Math.round(summary.totalGainLoss).toLocaleString()} icon={ICONS.trendUp} 
-                                        color={summary.totalGainLoss <= 0 ? 'var(--danger)' : 'var(--success)'}
-                                        onClick={() => setHelpModal({title: '未實現損益', content: '直接加總 Google Sheet 的 P欄 (Total Diff)'})}/>
-                                    <SummaryCard title="報酬率" value={`${summary.totalReturnRate.toFixed(2)}%`} icon={ICONS.chart}
-                                        color={summary.totalReturnRate <= 0 ? 'var(--danger)' : 'var(--success)'}
-                                        onClick={() => setHelpModal({title: '報酬率', content: '(未實現損益 ÷ 總成本) × 100%'})}/>
-                                    <SummaryCard title="存放金額" value={Math.round(summary.totalDeposits).toLocaleString()} icon={ICONS.piggy} color="#60a5fa"
-                                        onClick={() => setHelpModal({title: '存放金額', content: '所有「存入」與「入金」的總額 (取 K欄絕對值)'})}/>
-                                    <SummaryCard title="帳戶結餘 (現金)" value={Math.round(summary.cashBalance).toLocaleString()} icon={ICONS.wallet}
-                                        onClick={() => setHelpModal({title: '帳戶結餘', content: '從 K 欄計算: 存入 - 買入 + 賣出 + 股息'})}/>
-                                </div>
+                                {dashboardView !== 'realized' && (
+                                    <div className="dashboard-grid">
+                                        <SummaryCard delay="delay-1" title="目前總市值" value={Math.round(summary.totalMarketValue).toLocaleString()} icon={ICONS.money} 
+                                            onClick={() => setHelpModal({title: '目前市值', content: '從 Google Sheet 擷取最新的市值加總。'})}/>
+                                        <SummaryCard delay="delay-2" title="累積本金成本" value={Math.round(summary.totalCost).toLocaleString()} icon={ICONS.upload} 
+                                            onClick={() => setHelpModal({title: '累積本金成本', content: '持有庫存的歷史買入成本總和。'})}/>
+                                        <SummaryCard delay="delay-3" title="未實現損益" value={Math.round(summary.totalGainLoss).toLocaleString()} icon={ICONS.trendUp} 
+                                            color={summary.totalGainLoss <= 0 ? 'var(--danger)' : 'var(--success)'}
+                                            onClick={() => setHelpModal({title: '未實現損益', content: '目前持股帳面上的未實現損益 (P欄總和)。'})}/>
+                                        <SummaryCard delay="delay-4" title="整體報酬率" value={`${summary.totalReturnRate.toFixed(2)}%`} icon={ICONS.chart}
+                                            color={summary.totalReturnRate <= 0 ? 'var(--danger)' : 'var(--success)'}
+                                            onClick={() => setHelpModal({title: '整體報酬率', content: '(未實現損益 ÷ 累積本金成本) × 100%'})}/>
+                                    </div>
+                                )}
 
                                 {dashboardView === 'personal' && portfolio.length > 0 && (
-                                    <div className="card" style={{marginTop: '1.5rem', padding: '0'}}>
-                                        <div style={{padding: '1rem', borderBottom: '1px solid var(--border-color)', display:'flex', alignItems:'center', gap:'8px'}}>
-                                            <Icon path={ICONS.list} className="text-indigo"/> <strong>庫存成本細項</strong>
+                                    <div className="card animate-float delay-2" style={{marginTop: '2rem', padding: '0', overflow: 'hidden'}}>
+                                        <div style={{padding: '1.25rem 1.5rem', display:'flex', alignItems:'center', gap:'10px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-color)'}}>
+                                            <Icon path={ICONS.list} className="text-indigo"/> <strong style={{fontSize: '1.05rem'}}>持股現狀明細</strong>
                                         </div>
-                                        <div className="table-container" style={{border: 'none', borderRadius: '0'}}>
+                                        <div className="table-container" style={{border: 'none', borderRadius: '0', background: 'transparent', backdropFilter:'none'}}>
                                             <table>
                                                 <thead>
                                                     <tr>
                                                         <th>代號</th>
                                                         <th className="text-right">股數</th>
-                                                        <th className="text-right bg-indigo-light">總成本</th>
+                                                        <th className="text-right">總成本</th>
                                                         <th className="text-right">市值</th>
-                                                        <th className="text-right">未實現損益(P)</th>
+                                                        <th className="text-right">未實現損益</th>
                                                         <th className="text-right">報酬率</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {portfolio.map((item, idx) => (
                                                         <tr key={idx}>
-                                                            <td style={{fontWeight:'bold'}}>{item.symbol}</td>
-                                                            <td className="text-right">{item.totalShares.toLocaleString()}</td>
-                                                            <td className="text-right bg-indigo-light">{Math.round(item.totalCost).toLocaleString()}</td>
-                                                            <td className="text-right">{Math.round(item.marketValue).toLocaleString()}</td>
-                                                            <td className={`text-right font-bold ${item.gainLoss <= 0 ? 'text-red' : 'text-green'}`}>{Math.round(item.gainLoss).toLocaleString()}</td>
-                                                            <td className={`text-right ${item.gainLossPercent <= 0 ? 'text-red' : 'text-green'}`}>{item.gainLossPercent.toFixed(2)}%</td>
+                                                            <td style={{fontWeight:'700', color:'white'}}>{item.symbol}</td>
+                                                            <td className="text-right font-mono" style={{color: '#d4d4d8'}}>{item.totalShares.toLocaleString()}</td>
+                                                            <td className="text-right font-mono" style={{color: '#a1a1aa'}}>{Math.round(item.totalCost).toLocaleString()}</td>
+                                                            <td className="text-right font-mono" style={{color: '#e4e4e7'}}>{Math.round(item.marketValue).toLocaleString()}</td>
+                                                            <td className={`text-right font-bold font-mono ${item.gainLoss <= 0 ? 'text-red' : 'text-green'}`}>{Math.round(item.gainLoss).toLocaleString()}</td>
+                                                            <td className={`text-right font-bold ${item.gainLossPercent <= 0 ? 'text-red' : 'text-green'}`}>{item.gainLossPercent.toFixed(2)}%</td>
                                                         </tr>
                                                     ))}
-                                                    <tr style={{background: 'rgba(15,23,42,0.8)', fontWeight: 'bold', borderTop: '2px solid var(--border-color)'}}>
-                                                        <td>總計</td>
-                                                        <td className="text-right">-</td>
-                                                        <td className="text-right bg-indigo-light">{Math.round(summary.totalCost).toLocaleString()}</td>
-                                                        <td className="text-right">{Math.round(summary.totalMarketValue).toLocaleString()}</td>
-                                                        <td className={`text-right ${summary.totalGainLoss <= 0 ? 'text-red' : 'text-green'}`}>{Math.round(summary.totalGainLoss).toLocaleString()}</td>
-                                                        <td className="text-right">-</td>
-                                                    </tr>
                                                 </tbody>
                                             </table>
-                                        </div>
-                                        <div className="formula-box">
-                                            <div className="formula-item"><div className="dot"></div><strong>市值</strong> = R欄 (若無則 N欄×D欄)</div>
-                                            <div className="formula-item"><div className="dot"></div><strong>未實現損益</strong> = 來自 CSV P欄總和</div>
-                                            <div className="formula-item"><div className="dot"></div><strong>報酬率</strong> = (損益 ÷ 總成本)%</div>
                                         </div>
                                     </div>
                                 )}
 
-                                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1.5rem'}}>
-                                    <div className="card" style={{height: '450px'}}>
-                                        <h4 style={{textAlign:'center', margin:'0 0 1rem 0'}}>資產配置 (市值)</h4>
-                                        <ResponsiveContainer width="100%" height="90%">
-                                            <PieChart>
-                                                <Pie data={chartDataPie} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                                    {chartDataPie.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                                </Pie>
-                                                <Tooltip contentStyle={{backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff'}} formatter={(val)=>`$${val.toLocaleString()}`}/>
-                                                <Legend />
-                                            </PieChart>
-                                        </ResponsiveContainer>
+                                {dashboardView === 'realized' && (
+                                    <div className="card animate-float" style={{marginTop: '1.5rem', padding: '0', overflow: 'hidden'}}>
+                                        <div style={{padding: '1.25rem 1.5rem', display:'flex', alignItems:'center', gap:'10px', background: 'rgba(16, 185, 129, 0.05)', borderBottom: '1px solid rgba(16, 185, 129, 0.2)'}}>
+                                            <Icon path={ICONS.money} className="text-green"/> <strong style={{fontSize: '1.05rem', color: 'var(--success)'}}>已實現損益 (淨收益)</strong>
+                                        </div>
+                                        <div className="table-container" style={{border: 'none', borderRadius: '0', background: 'transparent', backdropFilter:'none'}}>
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th>商品</th>
+                                                        <th className="text-right">賣出股數</th>
+                                                        <th className="text-right">單位買價</th>
+                                                        <th className="text-right">賣出淨額</th>
+                                                        <th className="text-right">賣出成本</th>
+                                                        <th className="text-right">已實現損益</th>
+                                                        <th className="text-right">報酬率</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {currentRealizedData.map((item, idx) => (
+                                                        <tr key={idx}>
+                                                            <td style={{fontWeight:'700', color:'white'}}>{item.symbol} <span style={{fontSize:'0.75rem', color:'#a1a1aa', marginLeft:'4px', fontWeight:'normal'}}>{item.name}</span></td>
+                                                            <td className="text-right font-mono" style={{color: '#a1a1aa'}}>{item.shares.toLocaleString()}</td>
+                                                            <td className="text-right font-mono" style={{color: '#a1a1aa'}}>{item.avgBuyPrice.toLocaleString()}</td>
+                                                            <td className="text-right font-mono" style={{color: 'white'}}>{item.netSell.toLocaleString()}</td>
+                                                            <td className="text-right font-mono" style={{color: '#a1a1aa'}}>{item.cost.toLocaleString()}</td>
+                                                            <td className={`text-right font-bold font-mono ${item.realizedPnL <= 0 ? 'text-red' : 'text-green'}`}>{item.realizedPnL.toLocaleString()}</td>
+                                                            <td className={`text-right font-bold ${parseFloat(item.returnRate) <= 0 ? 'text-red' : 'text-green'}`}>{item.returnRate}</td>
+                                                        </tr>
+                                                    ))}
+                                                    <tr style={{background: 'rgba(16, 185, 129, 0.05)', fontWeight: '700', borderTop: '2px solid rgba(255,255,255,0.1)'}}>
+                                                        <td style={{color: 'white'}}>總計結算</td>
+                                                        <td colSpan="2"></td>
+                                                        <td className="text-right font-mono">{Math.round(realizedTotals.netSell).toLocaleString()}</td>
+                                                        <td className="text-right font-mono">{Math.round(realizedTotals.cost).toLocaleString()}</td>
+                                                        <td className={`text-right font-bold font-mono ${realizedTotals.realizedPnL <= 0 ? 'text-red' : 'text-green'}`}>{Math.round(realizedTotals.realizedPnL).toLocaleString()}</td>
+                                                        <td className={`text-right font-bold ${realizedTotals.returnRate <= 0 ? 'text-red' : 'text-green'}`}>{realizedTotals.returnRate.toFixed(2)}%</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
-                                    <div className="card" style={{height: '450px'}}>
-                                        <h4 style={{textAlign:'center', margin:'0 0 1rem 0'}}>損益分佈</h4>
-                                        <ResponsiveContainer width="100%" height="90%">
-                                            <BarChart data={chartDataBar} layout="vertical" margin={{ left: 10, right: 30 }}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false}/>
-                                                <XAxis type="number" stroke="#94a3b8" tickFormatter={(val) => `$${val/1000}k`} />
-                                                <YAxis 
-                                                    dataKey="name" 
-                                                    type="category" 
-                                                    stroke="#e2e8f0" 
-                                                    width={100} 
-                                                    style={{fontSize: '12px'}} 
-                                                    tickFormatter={(val) => val.length > 6 ? val.substring(0, 6) + '...' : val}
-                                                />
-                                                <Tooltip contentStyle={{backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff'}} cursor={{fill: '#334155', opacity: 0.2}}/>
-                                                <ReferenceLine x={0} stroke="#94a3b8" />
-                                                <Bar dataKey="value" name="損益">
-                                                    {chartDataBar.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.value <= 0 ? '#ef4444' : '#10b981'} />)}
-                                                </Bar>
-                                            </BarChart>
-                                        </ResponsiveContainer>
+                                )}
+
+                                {dashboardView !== 'realized' && (
+                                    <div className="charts-grid animate-float delay-3">
+                                        {/* 1. 累積投入資金曲線 */}
+                                        <div className="card chart-container chart-full">
+                                            <h4 className="chart-title"><Icon path={ICONS.trendUp} className="text-indigo"/> 累積投入資金護城河</h4>
+                                            <div style={{flex: 1, minHeight: 0}}>
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <AreaChart data={timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                                        <defs>
+                                                            <linearGradient id="colorDeposit" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%" stopColor="#818cf8" stopOpacity={0.6}/>
+                                                                <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <XAxis dataKey="month" stroke="#71717a" tick={{fontSize: 12}} dy={10} minTickGap={30}/>
+                                                        <YAxis stroke="#71717a" tick={{fontSize: 12}} tickFormatter={(val) => `$${(val/1000).toFixed(0)}k`} width={65}/>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                                        <Tooltip content={<CustomTooltip />} />
+                                                        <Area type="monotone" dataKey="deposit" name="累積存入資金" stroke="#818cf8" strokeWidth={3} fillOpacity={1} fill="url(#colorDeposit)" />
+                                                    </AreaChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+
+                                        {/* 2. 商品損益排行榜 (地雷王 vs 獲利王) */}
+                                        <div className="card chart-container">
+                                            <h4 className="chart-title"><Icon path={ICONS.chart} className="text-green"/> 個股損益排行榜</h4>
+                                            <div style={{flex: 1, minHeight: 0}}>
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={pnlChartData} layout="vertical" margin={{ left: 10, right: 20, top:0, bottom:0 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false}/>
+                                                        <XAxis type="number" stroke="#71717a" tick={{fontSize: 12}} tickFormatter={(val) => `$${val/1000}k`} />
+                                                        <YAxis dataKey="name" type="category" stroke="#d4d4d8" width={60} tick={{fontSize: 12, fontWeight: 600}} />
+                                                        <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} content={<CustomTooltip />} />
+                                                        <ReferenceLine x={0} stroke="rgba(255,255,255,0.2)" strokeWidth={2} />
+                                                        <Bar dataKey="gainLoss" name="未實現損益" radius={[0, 4, 4, 0]}>
+                                                            {pnlChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                                                        </Bar>
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+
+                                        {/* 3. 投資時間軸與交易密度 */}
+                                        <div className="card chart-container">
+                                            <h4 className="chart-title"><Icon path={ICONS.activity} className="text-warning"/> 交易活躍度 (買賣總額)</h4>
+                                            <div style={{flex: 1, minHeight: 0}}>
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false}/>
+                                                        <XAxis dataKey="month" stroke="#71717a" tick={{fontSize: 12}} dy={10} />
+                                                        <YAxis stroke="#71717a" tick={{fontSize: 12}} tickFormatter={(val) => `$${(val/1000).toFixed(0)}k`} />
+                                                        <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} content={<CustomTooltip />} />
+                                                        <Bar dataKey="tradeVol" name="當月交易總量" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         )}
 
                         {activeTab === 'transactions' && (
-                            <div className="card">
-                                <h3 style={{marginTop:0, marginBottom:'1rem'}}>交易流水帳明細</h3>
-                                <div style={{display:'flex', gap:'0.5rem', marginBottom:'1rem', flexWrap:'wrap'}}>
-                                    <button className={`btn ${filterType === 'all' ? 'active' : ''}`} onClick={()=>{setFilterType('all'); setSubFilterType('all')}}>全部</button>
+                            <div className="card animate-float">
+                                <h3 style={{marginTop:0, marginBottom:'1.5rem', letterSpacing: '0.02em', fontSize: '1.25rem'}}>交易流水帳明細</h3>
+                                <div style={{display:'flex', gap:'0.75rem', marginBottom:'1.5rem', flexWrap:'wrap'}}>
+                                    <button className={`btn ${filterType === 'all' ? 'active' : ''}`} onClick={()=>{setFilterType('all'); setSubFilterType('all')}}>全部紀錄</button>
                                     <button className={`btn ${filterType === 'trade' ? 'active' : ''}`} onClick={()=>setFilterType('trade')}>股票買賣</button>
-                                    <button className={`btn ${filterType === 'deposit' ? 'active' : ''}`} onClick={()=>{setFilterType('deposit'); setSubFilterType('all')}}>資金存入</button>
+                                    <button className={`btn ${filterType === 'deposit' ? 'active' : ''}`} onClick={()=>{setFilterType('deposit'); setSubFilterType('all')}}>資金存出入</button>
                                     
                                     {filterType === 'trade' && (
-                                        <div style={{display:'flex', gap:'0.5rem', marginLeft:'auto'}}>
-                                            {['all', 'fu', 'xu', 'gong'].map(f => (
-                                                <button key={f} className={`btn ${subFilterType === f ? 'btn-primary' : ''}`} style={{padding:'0.25rem 0.75rem', fontSize:'12px'}} onClick={()=>setSubFilterType(f)}>
-                                                    {f === 'all' ? '全' : f === 'fu' ? '父' : f === 'xu' ? '旭' : '公'}
+                                        <div style={{display:'flex', gap:'0.5rem', marginLeft:'auto', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '0.75rem'}}>
+                                            {['all', 'fu', 'xu'].map(f => (
+                                                <button key={f} className={`btn ${subFilterType === f ? 'btn-primary' : ''}`} style={{padding:'0.4rem 1.2rem', fontSize:'0.8rem', borderRadius: '0.5rem'}} onClick={()=>setSubFilterType(f)}>
+                                                    {f === 'all' ? '全部人員' : f === 'fu' ? '父' : '旭'}
                                                 </button>
                                             ))}
                                         </div>
                                     )}
                                 </div>
-                                <div className="input-group" style={{marginBottom: '1rem'}}>
-                                    <input type="text" className="form-input" placeholder="搜尋代號、備註..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                                    <span style={{position:'absolute', right:'10px', top:'8px', color: 'var(--text-muted)'}}><Icon path={ICONS.search}/></span>
+                                <div className="input-group" style={{marginBottom: '1.5rem'}}>
+                                    <input type="text" className="form-input" placeholder="搜尋股票代號、備註、日期..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                                    <span style={{position:'absolute', right:'15px', top:'12px', color: 'var(--text-muted)'}}><Icon path={ICONS.search}/></span>
                                 </div>
 
-                                <div className="table-container">
+                                <div className="table-container" style={{background: 'transparent', border: 'none', backdropFilter:'none'}}>
                                     <table>
                                         <thead>
                                             <tr>
                                                 <th>日期</th><th>類別</th><th>名稱</th><th className="text-right">股數</th>
                                                 <th className="text-right">單價</th><th className="text-right">實付金額</th>
-                                                <th className="text-right text-indigo">現價(N)</th><th className="text-right">價差(P)</th>
-                                                <th className="text-right">報酬率%(Q)</th>
+                                                <th className="text-right text-indigo">現價 (N)</th><th className="text-right">價差 (P)</th>
+                                                <th className="text-right">報酬率</th>
                                                 <th>備註</th>
                                             </tr>
                                         </thead>
@@ -929,30 +940,27 @@
                                                 let badgeClass = 'badge';
                                                 if (side.includes('買')) badgeClass += ' badge-buy';
                                                 else if (side.includes('賣')) badgeClass += ' badge-sell';
-                                                else if (side.includes('存')) badgeClass += ' badge-dep';
+                                                else if (side.includes('存') || side.includes('入')) badgeClass += ' badge-dep';
                                                 else if (side.includes('息')) badgeClass += ' badge-div';
                                                 
-                                                const isMoneyIn = side.includes('賣') || side.includes('息') || side.includes('存');
-                                                const diffColor = tx.totalDiff <= 0 ? 'text-red font-bold' : 'text-green';
-                                                
-                                                // 報酬率顏色邏輯: 負數為紅(賺), 正數為綠(賠)
-                                                // 僅買賣類別顯示報酬率
+                                                const isMoneyIn = side.includes('賣') || side.includes('息') || side.includes('存') || side.includes('入');
+                                                const diffColor = tx.totalDiff <= 0 ? 'text-red font-bold' : 'text-green font-bold';
                                                 const showReturn = side.includes('買') || side.includes('賣');
                                                 const returnRateVal = parseFloat(tx.returnRate) || 0;
-                                                const returnRateColor = returnRateVal <= 0 ? 'text-red font-bold' : (returnRateVal > 0 ? 'text-green' : 'text-muted');
+                                                const returnRateColor = returnRateVal <= 0 ? 'text-red font-bold' : (returnRateVal > 0 ? 'text-green font-bold' : 'text-muted');
 
                                                 return (
                                                     <tr key={idx}>
-                                                        <td>{tx.date}</td>
+                                                        <td style={{color: '#a1a1aa'}}>{tx.date}</td>
                                                         <td><span className={badgeClass}>{tx.side || '-'}</span></td>
-                                                        <td style={{fontWeight:'500', color:'white'}}>{tx.symbol || '-'}</td>
-                                                        <td className="text-right">{tx.shares ? tx.shares.toLocaleString() : '-'}</td>
-                                                        <td className="text-right">{tx.price ? tx.price.toLocaleString() : '-'}</td>
-                                                        <td className={`text-right font-bold ${isMoneyIn ? 'text-red' : 'text-green'}`}>{tx.totalPaid.toLocaleString()}</td>
+                                                        <td style={{fontWeight:'700', color:'white'}}>{tx.symbol || '-'}</td>
+                                                        <td className="text-right font-mono" style={{color: '#d4d4d8'}}>{tx.shares ? tx.shares.toLocaleString() : '-'}</td>
+                                                        <td className="text-right font-mono" style={{color: '#d4d4d8'}}>{tx.price ? tx.price.toLocaleString() : '-'}</td>
+                                                        <td className={`text-right font-bold font-mono ${isMoneyIn ? 'text-red' : 'text-green'}`}>{tx.totalPaid.toLocaleString()}</td>
                                                         <td className="text-right text-indigo font-mono">{tx.sheetCurrentPrice || '-'}</td>
                                                         <td className={`text-right font-mono ${diffColor}`}>{tx.totalDiff ? tx.totalDiff.toLocaleString() : '-'}</td>
                                                         <td className={`text-right font-mono ${returnRateColor}`}>{showReturn && tx.returnRate ? tx.returnRate + '%' : '-'}</td>
-                                                        <td style={{fontSize:'12px', color:'var(--text-muted)'}}>{tx.note}</td>
+                                                        <td style={{fontSize:'0.8rem', color:'var(--text-muted)', maxWidth: '150px', textOverflow: 'ellipsis', overflow: 'hidden'}}>{tx.note}</td>
                                                     </tr>
                                                 );
                                             })}
@@ -963,19 +971,34 @@
                         )}
 
                         {activeTab === 'import' && (
-                            <div className="card" style={{maxWidth: '800px', margin: '0 auto'}}>
-                                <h2><Icon path={ICONS.upload}/> 資料來源設定</h2>
-                                <div style={{marginBottom: '1rem'}}>
-                                    <label style={{display:'block', marginBottom:'0.5rem'}}>Google Sheet CSV 連結</label>
-                                    <div style={{display:'flex', gap:'0.5rem'}}>
+                            <div className="card animate-float" style={{maxWidth: '800px', margin: '0 auto', padding: '2.5rem'}}>
+                                <h2 style={{marginTop: 0, display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '0.02em'}}><Icon path={ICONS.upload} className="text-indigo"/> 連結資料庫</h2>
+                                <p style={{color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '2.5rem'}}>請將 Google Sheet 發佈為 CSV 格式，並貼上完整網址連結以同步數據。</p>
+                                
+                                <div style={{marginBottom: '2rem'}}>
+                                    <label style={{display:'block', marginBottom:'0.75rem', fontWeight: '600', color: '#e4e4e7'}}>主投資流水帳 (總表)</label>
+                                    <div style={{display:'flex', gap:'0.75rem'}}>
                                         <input type="text" className="form-input" value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} />
-                                        <button className="btn btn-primary" onClick={() => fetchGoogleSheet(sheetUrl)} disabled={loading}>
-                                            {loading ? <div className="spinner"></div> : '重新載入'}
+                                        <button className="btn btn-primary" style={{padding: '0 1.5rem'}} onClick={() => loadAllData()} disabled={loading}>
+                                            {loading ? <div className="spinner"></div> : '立刻同步'}
                                         </button>
                                     </div>
                                 </div>
-                                <div style={{background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '0.5rem', fontSize: '13px', fontFamily: 'monospace', color: '#4ade80'}}>
-                                    =IF(M2="存入", "", IFERROR(GOOGLEFINANCE("TPE:"&A2), IFERROR(GOOGLEFINANCE(A2), "手動輸入")))
+                                <div style={{marginBottom: '2.5rem'}}>
+                                    <label style={{display:'block', marginBottom:'0.75rem', fontWeight: '600', color: '#e4e4e7'}}>已實現損益表 (淨收益)</label>
+                                    <div style={{display:'flex', gap:'0.75rem'}}>
+                                        <input type="text" className="form-input" value={realizedSheetUrl} onChange={e => setRealizedSheetUrl(e.target.value)} />
+                                        <button className="btn btn-primary" style={{padding: '0 1.5rem'}} onClick={() => loadAllData()} disabled={loading}>
+                                            {loading ? <div className="spinner"></div> : '立刻同步'}
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div style={{background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.2)', padding: '1.5rem', borderRadius: '1rem'}}>
+                                    <strong style={{display: 'block', color: 'var(--accent)', marginBottom: '0.75rem', fontSize: '0.9rem'}}>📊 Google Sheet 報價公式參考：</strong>
+                                    <div style={{fontSize: '0.85rem', fontFamily: 'ui-monospace, monospace', color: '#a5b4fc', background:'rgba(0,0,0,0.3)', padding:'10px', borderRadius:'8px'}}>
+                                        =IF(M2="存入", "", IFERROR(GOOGLEFINANCE("TPE:"&A2), IFERROR(GOOGLEFINANCE(A2), "手動輸入")))
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -984,16 +1007,16 @@
             );
         };
 
-        const SummaryCard = ({ title, value, icon, color = 'white', onClick }) => (
-            <div className="card summary-card" onClick={onClick}>
+        const SummaryCard = ({ title, value, icon, color = 'white', onClick, delay = '' }) => (
+            <div className={`card summary-card animate-float ${delay}`} onClick={onClick}>
                 <div className="summary-header">
                     <span className="summary-title">{title}</span>
-                    <span style={{color: 'var(--text-muted)'}}><Icon path={ICONS.info} size={14}/></span>
+                    <span style={{color: 'rgba(255,255,255,0.15)', transition: 'color 0.2s'}} className="info-icon"><Icon path={ICONS.info} size={16}/></span>
                 </div>
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end'}}>
                     <div className="summary-value" style={{color}}>${value}</div>
-                    <div style={{background:'rgba(255,255,255,0.05)', padding:'8px', borderRadius:'8px', color: color === 'white' ? 'var(--text-muted)' : color}}>
-                        <Icon path={icon} size={24}/>
+                    <div className="summary-icon-wrapper" style={{color: color === 'white' ? 'var(--text-muted)' : color}}>
+                        <Icon path={icon} size={28}/>
                     </div>
                 </div>
             </div>
