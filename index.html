@@ -1,1029 +1,791 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>個人股票資產追蹤 (單檔版)</title>
-    
-    <!-- 載入 React 和 Recharts 核心 -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- 新增 PropTypes 以解決 Recharts 錯誤 -->
-    <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
-    <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeTracker｜股票資產追蹤</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
 
-    <!-- 標準 CSS 樣式表 -->
-    <style>
-        :root {
-            --bg-dark: #09090b;       
-            --bg-card: rgba(24, 24, 27, 0.25); 
-            --border-color: rgba(255, 255, 255, 0.08); 
-            --border-highlight: rgba(255, 255, 255, 0.15);
-            --text-main: #fafafa;     
-            --text-muted: #a1a1aa;    
-            --accent: #6366f1;        
-            --accent-hover: #4f46e5;  
-            --success: #10b981;       
-            --danger: #f43f5e;        
-            --warning: #f59e0b;       
-            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-            --shadow-md: 0 10px 30px -5px rgba(0, 0, 0, 0.6);
-            --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.2);
-            --glass-blur: blur(32px) saturate(200%);
-        }
+:root {
+  --bg:        #0d0f14;
+  --s1:        #13161e;
+  --s2:        #1a1e2a;
+  --s3:        #222636;
+  --bd:        rgba(255,255,255,0.07);
+  --bd-hi:     rgba(255,255,255,0.13);
+  --accent:    #6c63ff;
+  --a-dim:     rgba(108,99,255,0.14);
+  --green:     #22c55e;
+  --g-dim:     rgba(34,197,94,0.12);
+  --red:       #f43f5e;
+  --r-dim:     rgba(244,63,94,0.12);
+  --amber:     #f59e0b;
+  --cyan:      #06b6d4;
+  --t1:        #f0f2f8;
+  --t2:        #9098b4;
+  --t3:        #5a6180;
+  --mono:      'JetBrains Mono', monospace;
+  --sans:      'Inter', 'Noto Sans TC', sans-serif;
+  --sw:        220px;
+}
 
-        * { box-sizing: border-box; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden}
+button{cursor:pointer;font-family:inherit}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--s3);border-radius:2px}
 
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-dark);
-            /* 多重光暈背景創造空間感 */
-            background-image: 
-                radial-gradient(circle at 15% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
-                radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
-                radial-gradient(circle at 50% 100%, rgba(244, 63, 94, 0.05) 0%, transparent 40%);
-            background-attachment: fixed;
-            color: var(--text-main);
-            padding-bottom: 60px;
-            min-height: 100vh;
-        }
+/* ── LOADING ── */
+#ld{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;transition:opacity .4s,visibility .4s}
+#ld.done{opacity:0;visibility:hidden}
+.ld-logo{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--t1);letter-spacing:2px}
+.ld-logo em{color:var(--accent);font-style:normal}
+.ld-track{width:160px;height:2px;background:var(--s3);border-radius:2px;overflow:hidden}
+.ld-bar{height:100%;background:linear-gradient(90deg,var(--accent),#a78bfa);animation:ldA 1.8s ease forwards}
+@keyframes ldA{from{width:0}to{width:100%}}
+.ld-st{font-size:11px;color:var(--t3);font-family:var(--mono)}
 
-        /* 動畫設定 */
-        @keyframes floatUp {
-            0% { opacity: 0; transform: translateY(20px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-        .animate-float { animation: floatUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
-        .delay-1 { animation-delay: 0.1s; }
-        .delay-2 { animation-delay: 0.2s; }
-        .delay-3 { animation-delay: 0.3s; }
-        .delay-4 { animation-delay: 0.4s; }
+/* ── SHELL ── */
+#shell{display:flex;min-height:100vh}
 
-        /* 導覽列 */
-        .navbar {
-            background-color: rgba(9, 9, 11, 0.5);
-            backdrop-filter: var(--glass-blur);
-            -webkit-backdrop-filter: var(--glass-blur);
-            border-bottom: 1px solid var(--border-color);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            padding: 0.875rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-        }
+/* ── SIDEBAR ── */
+#sb{width:var(--sw);background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;transition:transform .28s ease}
+.sb-logo{padding:26px 22px 22px;border-bottom:1px solid var(--bd)}
+.sb-logo-t{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--t1);letter-spacing:1px}
+.sb-logo-t em{color:var(--accent);font-style:normal}
+.sb-logo-s{font-size:10px;color:var(--t3);margin-top:3px;letter-spacing:1px;text-transform:uppercase}
+.sb-nav{flex:1;padding:14px 10px;display:flex;flex-direction:column;gap:3px}
+.sb-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:none;background:none;color:var(--t2);font-size:13px;font-weight:500;text-align:left;width:100%;transition:all .18s}
+.sb-item:hover{background:var(--s2);color:var(--t1)}
+.sb-item.active{background:var(--a-dim);color:var(--accent);border:1px solid rgba(108,99,255,.2)}
+.sb-item .ic{width:18px;text-align:center;font-size:14px;flex-shrink:0}
+.sb-foot{padding:14px;border-top:1px solid var(--bd);font-size:10px;color:var(--t3);text-align:center;letter-spacing:.5px}
 
-        .brand {
-            font-size: 1.25rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            letter-spacing: -0.02em;
-        }
+/* ── MAIN ── */
+#main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh}
 
-        .nav-buttons { display: flex; gap: 0.5rem; }
+/* ── TOPBAR ── */
+#tb{height:54px;background:var(--s1);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 20px;position:sticky;top:0;z-index:40;gap:8px}
+.tb-title{font-size:15px;font-weight:600;color:var(--t1)}
+.tb-time{font-size:11px;color:var(--t3);margin-left:auto;font-family:var(--mono)}
+#hbg{display:none;background:none;border:none;color:var(--t2);font-size:20px;padding:4px;margin-right:4px}
 
-        .btn {
-            background: transparent;
-            border: 1px solid transparent;
-            color: var(--text-muted);
-            padding: 0.5rem 1.25rem;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            font-size: 0.875rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+/* ── CONTENT ── */
+#ct{flex:1;padding:26px;max-width:1200px;width:100%}
 
-        .btn:hover {
-            color: var(--text-main);
-            background-color: rgba(255, 255, 255, 0.08);
-            transform: translateY(-1px);
-        }
+/* ── PAGES ── */
+.pg{display:none}.pg.active{display:block}
 
-        .btn.active {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: var(--text-main);
-            border-color: var(--border-highlight);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.2);
-        }
+/* ── ANIMATIONS ── */
+@keyframes fu{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.a{animation:fu .4s ease both}
+.d1{animation-delay:.04s}.d2{animation-delay:.10s}.d3{animation-delay:.16s}
+.d4{animation-delay:.22s}.d5{animation-delay:.28s}.d6{animation-delay:.34s}
 
-        .btn-primary {
-            background-color: var(--accent);
-            color: white;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .btn-primary:hover {
-            background-color: var(--accent-hover);
-            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
-            transform: translateY(-1px);
-        }
-        .btn-primary:disabled {
-            background-color: var(--border-color);
-            box-shadow: none;
-            cursor: not-allowed;
-            opacity: 0.5;
-            transform: none;
-        }
+/* ── PAGE HEADER ── */
+.ph{margin-bottom:22px}
+.ph h1{font-size:19px;font-weight:700;color:var(--t1)}
+.ph p{font-size:12px;color:var(--t3);margin-top:3px}
 
-        /* 主要容器 */
-        .container { max-width: 1280px; margin: 0 auto; padding: 2rem 1.5rem; }
+/* ── PERSON SWITCH ── */
+.psw{display:inline-flex;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:3px;gap:2px;margin-bottom:22px}
+.psb{background:none;border:none;padding:6px 22px;border-radius:6px;font-size:13px;font-weight:500;color:var(--t2);transition:all .18s}
+.psb.active{background:var(--s3);color:var(--t1);box-shadow:0 1px 4px rgba(0,0,0,.4)}
 
-        /* 卡片樣式 (玻璃擬物風) */
-        .card {
-            background-color: var(--bg-card);
-            backdrop-filter: var(--glass-blur);
-            -webkit-backdrop-filter: var(--glass-blur);
-            border: 1px solid var(--border-color);
-            border-radius: 1.25rem;
-            padding: 1.5rem;
-            box-shadow: var(--shadow-md);
-            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-        }
+/* ── KPI GRID ── */
+.kpi-g{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
+.kc{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:18px 16px;transition:border-color .2s}
+.kc:hover{border-color:var(--bd-hi)}
+.kc-lbl{font-size:11px;color:var(--t3);margin-bottom:8px;display:flex;align-items:center;gap:6px;letter-spacing:.3px}
+.kc-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.kc-val{font-family:var(--mono);font-size:19px;font-weight:600;color:var(--t1);line-height:1}
+.kc-val.pos{color:var(--green)}.kc-val.neg{color:var(--red)}.kc-val.acc{color:var(--accent)}
 
-        /* 切換器 (膠囊設計) */
-        .toggle-group {
-            background-color: rgba(0, 0, 0, 0.4);
-            border: 1px solid var(--border-color);
-            padding: 0.375rem;
-            border-radius: 9999px;
-            display: inline-flex;
-            gap: 0.25rem;
-            margin-bottom: 1rem;
-            box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
-            backdrop-filter: blur(10px);
-        }
+/* ── SECTION TITLE ── */
+.sec-t{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sec-t::before{content:'';display:inline-block;width:3px;height:12px;background:var(--accent);border-radius:2px}
 
-        .toggle-btn {
-            padding: 0.5rem 1.75rem;
-            border-radius: 9999px;
-            border: none;
-            background: transparent;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+/* ── CHARTS ── */
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
+.cg.w100{grid-template-columns:1fr}
+.cc{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:18px}
+.cc-title{font-size:11px;font-weight:600;color:var(--t3);margin-bottom:14px;text-transform:uppercase;letter-spacing:.8px}
+.cc canvas{display:block;width:100%!important}
 
-        .toggle-btn:hover:not(.active) { color: var(--text-main); }
-        .toggle-btn.active {
-            background-color: rgba(255, 255, 255, 0.12);
-            color: white;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            border: 1px solid rgba(255,255,255,0.08);
-        }
+/* ── TABLE ── */
+.tc{background:var(--s1);border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:22px}
+.tsc{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--s2);padding:10px 14px;text-align:right;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;border-bottom:1px solid var(--bd)}
+thead th:first-child{text-align:left}
+tbody td{padding:11px 14px;text-align:right;color:var(--t1);border-bottom:1px solid var(--bd);font-family:var(--mono);font-size:12px;white-space:nowrap}
+tbody td:first-child{text-align:left;font-family:var(--sans);font-size:13px}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--s2)}
+tfoot td{padding:11px 14px;text-align:right;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--t1);background:var(--s2);border-top:1px solid var(--bd-hi)}
+tfoot td:first-child{text-align:left;font-family:var(--sans)}
+.pos{color:var(--green)!important}.neg{color:var(--red)!important}
+.code-tag{display:inline-block;background:var(--s3);color:var(--t3);font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:4px;margin-top:2px}
+.bs{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:var(--mono)}
+.bs.buy{background:var(--a-dim);color:var(--accent)}
+.bs.sell{background:var(--r-dim);color:var(--red)}
+.empty{padding:36px;text-align:center;color:var(--t3);font-size:13px}
 
-        /* 人員切換 Tabs */
-        .persona-tabs {
-            display: flex;
-            justify-content: center;
-            gap: 0.75rem;
-            margin-top: 0.5rem;
-            margin-bottom: 2rem;
-        }
+/* ── ERROR ── */
+.err{background:var(--r-dim);border:1px solid rgba(244,63,94,.25);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--red);font-family:var(--mono);margin-bottom:18px}
 
-        .persona-btn {
-            background: rgba(0,0,0,0.2);
-            border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            padding: 0.5rem 1.5rem;
-            border-radius: 0.75rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            backdrop-filter: blur(8px);
-        }
+/* ── OVERLAY ── */
+#sbo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:49}
 
-        .persona-btn:hover { border-color: var(--text-muted); color: var(--text-main); }
-        .persona-btn.active {
-            background: var(--text-main);
-            color: var(--bg-dark);
-            border-color: var(--text-main);
-            box-shadow: 0 0 20px rgba(255,255,255,0.2);
-        }
+/* ── RESPONSIVE ── */
+@media(max-width:768px){
+  #sb{transform:translateX(-100%)}
+  #sb.open{transform:translateX(0);box-shadow:4px 0 30px rgba(0,0,0,.6)}
+  #sbo.open{display:block}
+  #main{margin-left:0}
+  #hbg{display:block}
+  #ct{padding:14px}
+  .tb-time{display:none}
+  #reload-btn,#debug-btn{font-size:11px;padding:4px 8px}
+  .kpi-g{grid-template-columns:repeat(2,1fr);gap:10px}
+  .kc-val{font-size:15px}
+  .kc{padding:14px 12px}
+  .cg{grid-template-columns:1fr}
+  thead th,tbody td,tfoot td{padding:9px 10px}
+}
+@media(max-width:360px){
+  .kpi-g{grid-template-columns:1fr 1fr}
+  .kc-val{font-size:14px}
+}
 
-        /* 儀表板 Grid */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(1, 1fr);
-            gap: 1.25rem;
-            margin-top: 1rem;
-        }
-        @media (min-width: 640px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (min-width: 1024px) { .dashboard-grid { grid-template-columns: repeat(4, 1fr); } }
-
-        .summary-card {
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            background: linear-gradient(145deg, rgba(39, 39, 42, 0.4) 0%, rgba(24, 24, 27, 0.2) 100%);
-        }
-        .summary-card::before {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-        }
-        .summary-card:hover { 
-            transform: translateY(-4px) scale(1.01); 
-            box-shadow: var(--shadow-glow);
-            border-color: rgba(99, 102, 241, 0.4);
-            background: linear-gradient(145deg, rgba(39, 39, 42, 0.6) 0%, rgba(24, 24, 27, 0.3) 100%);
-        }
-        .summary-card:active { transform: translateY(0) scale(0.98); }
-        .summary-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-        .summary-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; }
-        .summary-value { font-size: 1.75rem; font-weight: 800; color: white; letter-spacing: -0.02em; }
-        .summary-icon-wrapper {
-            background: rgba(255,255,255,0.03); 
-            padding: 12px; 
-            border-radius: 12px; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid rgba(255,255,255,0.02);
-            transition: all 0.3s ease;
-        }
-        .summary-card:hover .summary-icon-wrapper { background: rgba(255,255,255,0.1); transform: rotate(5deg) scale(1.1); }
-
-        /* Chart Grid Layout */
-        .charts-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
-            margin-top: 2rem;
-        }
-        @media (min-width: 1024px) {
-            .charts-grid { grid-template-columns: 1fr 1fr; }
-            .chart-full { grid-column: span 2; }
-        }
-
-        .chart-container {
-            height: 400px; display: flex; flexDirection: column; padding: 1.5rem;
-        }
-        .chart-title {
-            text-align: left; margin: 0 0 1.5rem 0; font-weight: 700; color: white; letter-spacing: 0.02em;
-            display: flex; align-items: center; gap: 8px;
-        }
-
-        /* 表格樣式 */
-        .table-container {
-            overflow-x: auto;
-            border-radius: 1rem;
-            border: 1px solid var(--border-color);
-            background: rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(10px);
-        }
-
-        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; white-space: nowrap; }
-
-        th {
-            background-color: rgba(255, 255, 255, 0.02);
-            color: var(--text-muted);
-            font-weight: 600;
-            text-align: left;
-            padding: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-size: 0.75rem;
-            border-bottom: 1px solid var(--border-highlight);
-        }
-        td { padding: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.03); color: var(--text-main); transition: background 0.2s; }
-        tr:last-child td { border-bottom: none; }
-        tr:hover td { background-color: rgba(255, 255, 255, 0.05); }
-
-        .text-right { text-align: right; }
-        .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-        .font-bold { font-weight: 700; }
-        .text-red { color: var(--danger); }
-        .text-green { color: var(--success); }
-        .text-indigo { color: #818cf8; }
-
-        /* Badge */
-        .badge { padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; }
-        .badge-buy { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
-        .badge-sell { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.2); }
-        .badge-dep { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.2); }
-        .badge-div { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.2); }
-
-        /* Modal & Form Inputs */
-        .modal-backdrop {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 200;
-            display: flex; align-items: center; justify-content: center; padding: 1rem;
-        }
-        .modal-content {
-            background: #18181b; border: 1px solid var(--border-highlight);
-            width: 100%; max-width: 420px; border-radius: 1.25rem; padding: 1.75rem;
-            position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-        .close-btn {
-            position: absolute; top: 1.25rem; right: 1.25rem;
-            background: rgba(255,255,255,0.05); border: none; color: var(--text-muted);
-            width: 32px; height: 32px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.25rem;
-            transition: all 0.2s;
-        }
-        .close-btn:hover { background: rgba(255,255,255,0.15); color: white; transform: rotate(90deg); }
-
-        .form-input {
-            width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color);
-            color: white; padding: 0.75rem 1.25rem; border-radius: 0.75rem; outline: none;
-            transition: all 0.3s; font-size: 0.875rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
-        }
-        .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2), inset 0 2px 4px rgba(0,0,0,0.2); background: rgba(0,0,0,0.5); }
-
-        .spinner {
-            border: 2px solid rgba(255,255,255,0.1); border-left-color: white;
-            border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        /* 圖表自訂工具提示框背景 */
-        .custom-tooltip {
-            background: rgba(24, 24, 27, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            padding: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            color: #fff;
-            font-size: 0.85rem;
-        }
-    </style>
+/* ── RELOAD & DEBUG BUTTONS ── */
+#reload-btn,#debug-btn{background:var(--s2);border:1px solid var(--bd);border-radius:6px;color:var(--t2);font-size:13px;padding:5px 10px;transition:all .18s}
+#reload-btn:hover{color:var(--t1);border-color:var(--bd-hi)}
+#debug-btn:hover{color:var(--accent);border-color:rgba(108,99,255,.3)}
+#reload-btn.spinning{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ── DEBUG PANEL ── */
+#debug-panel{background:var(--s2);border-bottom:2px solid var(--amber);padding:16px 26px;font-family:var(--mono);font-size:11px;color:var(--t2);max-height:340px;overflow-y:auto}
+#debug-panel h3{color:var(--amber);font-size:12px;margin-bottom:12px;letter-spacing:1px}
+.dbg-sheet{margin-bottom:16px}
+.dbg-sheet h4{color:var(--accent);font-size:11px;margin-bottom:6px}
+.dbg-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;align-items:center}
+.dbg-label{color:var(--t3);min-width:80px;font-size:10px}
+.dbg-cell{background:var(--s3);border-radius:4px;padding:2px 8px}
+.dbg-cell.zero{background:rgba(244,63,94,.18);color:var(--red)}
+.dbg-cell.ok{background:rgba(34,197,94,.1);color:var(--green)}
+</style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
-        const { AreaChart, Area, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } = Recharts;
+<div id="ld">
+  <div class="ld-logo">Trade<em>Tracker</em></div>
+  <div class="ld-track"><div class="ld-bar"></div></div>
+  <div class="ld-st" id="ld-st">Connecting to data source...</div>
+</div>
 
-        const Icon = ({ path, size = 20, className = "" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-                {path}
-            </svg>
-        );
+<div id="shell">
 
-        const ICONS = {
-            dashboard: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>,
-            list: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>,
-            upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>,
-            money: <><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
-            chart: <><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></>,
-            wallet: <><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h2v-4z"/></>,
-            piggy: <><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2.5V5z"/><line x1="9" y1="11" x2="15" y2="11"/><circle cx="15" cy="7" r="1"/></>,
-            info: <><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>,
-            search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
-            trendUp: <><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
-            briefcase: <><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>,
-            users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
-            close: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
-            activity: <><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></>
-        };
+  <!-- SIDEBAR -->
+  <aside id="sb">
+    <div class="sb-logo">
+      <div class="sb-logo-t">Trade<em>Tracker</em></div>
+      <div class="sb-logo-s">股票資產追蹤系統</div>
+    </div>
+    <nav class="sb-nav">
+      <button class="sb-item active" data-page="overview"><span class="ic">📊</span>總覽</button>
+      <button class="sb-item" data-page="personal"><span class="ic">👤</span>個人歸戶</button>
+      <button class="sb-item" data-page="profit"><span class="ic">💰</span>淨收益</button>
+      <button class="sb-item" data-page="trades"><span class="ic">📋</span>交易明細</button>
+    </nav>
+    <div class="sb-foot">資料來源 · Google Sheets</div>
+  </aside>
 
-        const CustomTooltip = ({ active, payload, label }) => {
-            if (active && payload && payload.length) {
-                return (
-                    <div className="custom-tooltip">
-                        <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#a1a1aa' }}>{label}</p>
-                        {payload.map((entry, index) => (
-                            <p key={index} style={{ margin: '4px 0', color: entry.color || '#fff' }}>
-                                {entry.name}: <span className="font-mono">${Number(entry.value).toLocaleString()}</span>
-                            </p>
-                        ))}
-                    </div>
-                );
-            }
-            return null;
-        };
+  <div id="main">
+    <!-- TOPBAR -->
+    <div id="tb">
+      <button id="hbg" onclick="toggleSB()">☰</button>
+      <div class="tb-title" id="tb-title">總覽</div>
+      <div class="tb-time" id="tb-time">—</div>
+      <button id="reload-btn" onclick="reloadData()" title="重新加載資料">↺ 重載</button>
+      <button id="debug-btn" onclick="toggleDebug()" title="診斷原始資料">🔍 診斷</button>
+    </div>
+    <!-- DEBUG PANEL -->
+    <div id="debug-panel" style="display:none">
+      <h3>⚙ 原始 CSV 資料診斷</h3>
+      <div id="debug-content"></div>
+    </div>
 
-        const App = () => {
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [sheetUrl, setSheetUrl] = useState('https://docs.google.com/spreadsheets/d/e/2PACX-1vTZITzZ-p9NUFBGXrFA_0hjrjhpGnQJob9w8qFvwlrR-jAggJcsHji2CO9WS29R_-E3F9BKB_S9y5uz/pub?gid=0&single=true&output=csv');
-            const [realizedSheetUrl, setRealizedSheetUrl] = useState('https://docs.google.com/spreadsheets/d/e/2PACX-1vTZITzZ-p9NUFBGXrFA_0hjrjhpGnQJob9w8qFvwlrR-jAggJcsHji2CO9WS29R_-E3F9BKB_S9y5uz/pub?gid=1461679971&single=true&output=csv');
-            const [transactions, setTransactions] = useState([]);
-            const [realizedData, setRealizedData] = useState({ fu: [], xu: [] });
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState(null);
-            const [useProxy, setUseProxy] = useState(false);
-            const [searchTerm, setSearchTerm] = useState('');
-            const [filterType, setFilterType] = useState('all'); 
-            const [subFilterType, setSubFilterType] = useState('all');
-            const [sortOrder, setSortOrder] = useState('date-desc');
-            const [dashboardView, setDashboardView] = useState('total'); 
-            const [selectedPersona, setSelectedPersona] = useState('fu'); 
-            const [helpModal, setHelpModal] = useState(null);
+    <!-- CONTENT -->
+    <div id="ct">
 
-            // CSV 解析邏輯
-            const parseCSVLine = (text) => {
-                const result = [];
-                let cell = '';
-                let inQuotes = false;
-                for (let i = 0; i < text.length; i++) {
-                    const char = text[i];
-                    if (char === '"') inQuotes = !inQuotes;
-                    else if (char === ',' && !inQuotes) { result.push(cell.trim()); cell = ''; }
-                    else cell += char;
-                }
-                result.push(cell.trim());
-                return result;
-            };
+      <!-- PAGE: 總覽 -->
+      <div class="pg active" id="page-overview">
+        <div class="ph a d1"><h1>資產總覽</h1><p>合併父 &amp; 旭兩個帳戶的整體狀況</p></div>
+        <div class="kpi-g a d2" id="kpi-overview"></div>
+        <div class="cg w100 a d3">
+          <div class="cc">
+            <div class="cc-title">📈 累積投入資金走勢</div>
+            <canvas id="chart-area" height="110"></canvas>
+          </div>
+        </div>
+        <div class="cg a d4">
+          <div class="cc">
+            <div class="cc-title">🏆 個股已實現損益 Top 5</div>
+            <canvas id="chart-stock" height="200"></canvas>
+          </div>
+          <div class="cc">
+            <div class="cc-title">📅 每月交易筆數</div>
+            <canvas id="chart-month" height="200"></canvas>
+          </div>
+        </div>
+      </div>
 
-            const cleanNumber = (val) => {
-                if (!val) return 0;
-                const cleanStr = val.toString().replace(/,/g, '').replace(/"/g, '').replace(/\$/g, '').replace(/NT/g, '').replace(/nt/g, '').trim();
-                if (['#N/A', '#VALUE!', '#ERROR!', 'Loading...', '手動輸入', '-'].includes(cleanStr)) return 0;
-                const num = parseFloat(cleanStr);
-                return isNaN(num) ? 0 : num;
-            };
+      <!-- PAGE: 個人歸戶 -->
+      <div class="pg" id="page-personal">
+        <div class="ph a d1"><h1>個人歸戶分析</h1><p>查看個別帳戶的持倉狀況</p></div>
+        <div class="psw a d2">
+          <button class="psb active" data-person="dad" data-ctx="personal">父</button>
+          <button class="psb" data-person="son" data-ctx="personal">旭</button>
+        </div>
+        <div class="kpi-g a d3" id="kpi-personal"></div>
+        <div class="sec-t a d4">持股現狀明細（還在持有）</div>
+        <div class="tc a d5">
+          <div class="tsc">
+            <table id="tbl-hold">
+              <thead><tr>
+                <th>商品</th><th>持有量</th><th>均價</th><th>市值</th><th>未實現損益</th><th>報酬率</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
-            const parseRealizedCSV = (csvText) => {
-                const lines = csvText.trim().split('\n');
-                const fuData = [], xuData = [];
-                for (let i = 1; i < lines.length; i++) {
-                    const values = parseCSVLine(lines[i]);
-                    if (values.length < 8) continue;
-                    const fuSymbol = values[0]?.replace(/"/g, '').trim();
-                    if (fuSymbol) fuData.push({ symbol: fuSymbol, name: values[1]?.replace(/"/g, '').trim() || '', shares: cleanNumber(values[2]), avgBuyPrice: cleanNumber(values[3]), netSell: cleanNumber(values[4]), cost: cleanNumber(values[5]), realizedPnL: cleanNumber(values[6]), returnRate: values[7]?.replace(/"/g, '').trim() || '0%' });
-                    const xuSymbol = values[9]?.replace(/"/g, '').trim();
-                    if (xuSymbol) xuData.push({ symbol: xuSymbol, name: values[10]?.replace(/"/g, '').trim() || '', shares: cleanNumber(values[11]), avgBuyPrice: cleanNumber(values[12]), netSell: cleanNumber(values[13]), cost: cleanNumber(values[14]), realizedPnL: cleanNumber(values[15]), returnRate: values[16]?.replace(/"/g, '').trim() || '0%' });
-                }
-                return { fu: fuData, xu: xuData };
-            };
+      <!-- PAGE: 淨收益 -->
+      <div class="pg" id="page-profit">
+        <div class="ph a d1"><h1>淨收益（已實現損益）</h1><p>已賣出股票的損益統計</p></div>
+        <div class="psw a d2">
+          <button class="psb active" data-person="dad" data-ctx="profit">父</button>
+          <button class="psb" data-person="son" data-ctx="profit">旭</button>
+        </div>
+        <div class="tc a d3">
+          <div class="tsc">
+            <table id="tbl-profit">
+              <thead><tr>
+                <th>代號</th><th>商品名稱</th><th>賣出股數</th><th>已實現損益</th><th>報酬率</th>
+              </tr></thead>
+              <tbody></tbody>
+              <tfoot><tr>
+                <td colspan="2">合計</td>
+                <td id="p-shares">—</td>
+                <td id="p-pnl">—</td>
+                <td id="p-rate">—</td>
+              </tr></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
 
-            const parseCSVReturningData = (csvText) => {
-                try {
-                    const lines = csvText.trim().split('\n');
-                    if (lines.length < 2) throw new Error('CSV 內容過短或為空');
-                    return lines.slice(1).map((line, index) => {
-                        const values = parseCSVLine(line);
-                        if (values.length < 10) return null;
-                        const shares = cleanNumber(values[3]);
-                        const price = cleanNumber(values[4]);
-                        const totalK = values[10] ? cleanNumber(values[10]) : 0;
-                        return {
-                            id: values[0]?.replace(/"/g, '') || `row-${index}`,
-                            symbol: values[1]?.replace(/"/g, '').trim() || '',
-                            date: values[2]?.replace(/"/g, '').trim(),
-                            shares, price, fx: values[5] ? cleanNumber(values[5]) : 1,
-                            amountG: values[6] ? cleanNumber(values[6]) : (shares * price),
-                            feeH: values[7] ? cleanNumber(values[7]) : 0,
-                            taxI: values[8] ? cleanNumber(values[8]) : 0,
-                            totalK, totalPaid: totalK, 
-                            note: values[11]?.replace(/"/g, '').trim() || '', 
-                            side: values[12] ? values[12].replace(/"/g, '').trim() : '',
-                            sheetCurrentPrice: values[13] ? cleanNumber(values[13]) : 0,
-                            totalDiff: values[15] ? cleanNumber(values[15]) : 0, 
-                            returnRate: values[16] ? cleanNumber(values[16]) : 0, 
-                            marketValueR: values[17] ? cleanNumber(values[17]) : 0 
-                        };
-                    }).filter(item => item !== null && (item.symbol !== '' || item.side !== '' || item.totalPaid !== 0));
-                } catch (err) { throw err; }
-            };
+      <!-- PAGE: 交易明細 -->
+      <div class="pg" id="page-trades">
+        <div class="ph a d1"><h1>交易明細</h1><p>所有歷史交易紀錄</p></div>
+        <div class="tc a d2">
+          <div class="tsc">
+            <table id="tbl-trades">
+              <thead><tr>
+                <th>日期</th><th>商品名稱</th><th>買/賣</th><th>股數</th><th>單價</th><th>歸屬</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
-            const fetchSheetData = async (url, forceProxy, parser, setter) => {
-                if (!url) return;
-                let fetchUrl = url;
-                if (!url.includes('output=csv') && !url.includes('pub?')) {
-                    const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-                    if (match) fetchUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
-                }
-                const timestamp = new Date().getTime();
-                fetchUrl = `${fetchUrl}${fetchUrl.includes('?') ? '&' : '?'}_t=${timestamp}`;
-                if (forceProxy || useProxy) fetchUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fetchUrl)}&_t=${timestamp}`;
-                
-                const response = await fetch(fetchUrl);
-                if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
-                const text = await response.text();
-                if (text.trim().startsWith('<!DOCTYPE html>')) throw new Error('讀取到網頁而非 CSV');
-                setter(parser(text));
-            };
+    </div>
+  </div>
+</div>
 
-            const loadAllData = async (forceProxy = false) => {
-                setLoading(true); setError(null);
-                try {
-                    await fetchSheetData(sheetUrl, forceProxy, parseCSVReturningData, setTransactions);
-                    if (realizedSheetUrl) await fetchSheetData(realizedSheetUrl, forceProxy, parseRealizedCSV, setRealizedData);
-                    setLoading(false);
-                } catch (err) {
-                    if (!forceProxy && !useProxy) {
-                        setUseProxy(true);
-                        loadAllData(true);
-                    } else {
-                        setError(err.message + (useProxy ? " (已嘗試救援模式)" : ""));
-                        setLoading(false);
-                    }
-                }
-            };
+<div id="sbo" onclick="toggleSB()"></div>
 
-            useEffect(() => { loadAllData(); }, []);
+<script>
+/* ══════════════════════════════════════════════════════
+   TradeTracker — Data Engine
+   欄位對應（已確認）：
+   父/旭交易總攬：
+     Row2(index1)：A=目前市值, B=本金成本, C=整體報酬率%,
+                   D=未實現收益, E=存入金額, F=可使用餘額
+     Row7+(index6+)：持倉資料
+     A(0)=編號, B(1)=名稱, C(2)=持有量, D(3)=成本(負),
+     E(4)=成本(正), F(5)=現價, G(6)=市值, H(7)=損益,
+     I(8)=報酬率, J(9)=回本狀態
+   交易明細：
+     B(1)=商品名稱, C(2)=日期, D(3)=股數, E(4)=單價,
+     L(11)=備註(父/旭), M(12)=買/賣
+   淨收益：
+     父 offset=0, 旭 offset=9
+     +0=代號, +1=名稱, +2=賣出股數,
+     +6=已實現損益, +7=報酬率
+══════════════════════════════════════════════════════ */
 
-            // 核心資料計算與圖表資料生成
-            const { portfolio, summary, timelineData, pnlChartData } = useMemo(() => {
-                let targetTx = transactions;
-                if (dashboardView === 'personal') {
-                    targetTx = transactions.filter(t => (t.note || '').toLowerCase().includes(selectedPersona === 'fu' ? '父' : '旭'));
-                } else {
-                    targetTx = transactions.filter(t => {
-                        const note = (t.note || '').toLowerCase();
-                        return note.includes('父') || note.includes('旭');
-                    });
-                }
-                
-                // 照日期排序，準備給圖表用
-                const sortedTx = [...targetTx].sort((a, b) => new Date(a.date) - new Date(b.date));
-                
-                // --- 1. 計算目前的投資組合 (Holdings) ---
-                const holdings = {};
-                let totalDeposits = 0;
-                let cashBalance = 0;
-                const priceMap = {};
+const CSV_URLS = {
+  trades: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTZITzZ-p9NUFBGXrFA_0hjrjhpGnQJob9w8qFvwlrR-jAggJcsHji2CO9WS29R_-E3F9BKB_S9y5uz/pub?gid=0&single=true&output=csv',
+  dad:    'https://docs.google.com/spreadsheets/d/e/2PACX-1vTZITzZ-p9NUFBGXrFA_0hjrjhpGnQJob9w8qFvwlrR-jAggJcsHji2CO9WS29R_-E3F9BKB_S9y5uz/pub?gid=657368101&single=true&output=csv',
+  son:    'https://docs.google.com/spreadsheets/d/e/2PACX-1vTZITzZ-p9NUFBGXrFA_0hjrjhpGnQJob9w8qFvwlrR-jAggJcsHji2CO9WS29R_-E3F9BKB_S9y5uz/pub?gid=650757708&single=true&output=csv',
+  net:    'https://docs.google.com/spreadsheets/d/e/2PACX-1vTZITzZ-p9NUFBGXrFA_0hjrjhpGnQJob9w8qFvwlrR-jAggJcsHji2CO9WS29R_-E3F9BKB_S9y5uz/pub?gid=1461679971&single=true&output=csv',
+};
 
-                sortedTx.forEach(tx => {
-                    const side = (tx.side || '').toLowerCase();
-                    const sym = tx.symbol;
-                    const absK = Math.abs(tx.totalK);
+const ST = {
+  raw: { trades:[], dad:[], son:[], net:[] },
+  charts: {},
+  person: { personal:'dad', profit:'dad' },
+};
 
-                    if (side.includes('存') || side.includes('入')) {
-                        cashBalance += absK; totalDeposits += absK;
-                    } else if (side.includes('買')) {
-                        cashBalance -= absK;
-                        const cost = (tx.amountG + tx.feeH) * (tx.fx || 1) - tx.taxI;
-                        if (sym) {
-                            if (!holdings[sym]) holdings[sym] = { symbol: sym, totalShares: 0, totalCost: 0, csvTotalDiff: 0, csvMarketValueR: 0 };
-                            holdings[sym].totalShares += tx.shares; holdings[sym].totalCost += cost;
-                            holdings[sym].csvTotalDiff += tx.totalDiff; 
-                            if (tx.marketValueR) holdings[sym].csvMarketValueR += tx.marketValueR;
-                        }
-                    } else if (side.includes('賣')) {
-                        cashBalance += absK;
-                        if (sym && holdings[sym] && holdings[sym].totalShares > 0) {
-                            const sellRatio = tx.shares / holdings[sym].totalShares;
-                            holdings[sym].csvTotalDiff -= (holdings[sym].csvTotalDiff * sellRatio);
-                            holdings[sym].csvMarketValueR -= (holdings[sym].csvMarketValueR * sellRatio);
-                            holdings[sym].totalShares -= tx.shares;
-                            holdings[sym].totalCost -= (tx.shares * (holdings[sym].totalCost / holdings[sym].totalShares));
-                        }
-                    } else if (side.includes('息')) {
-                        cashBalance += absK;
-                        if (sym && holdings[sym]) holdings[sym].totalCost -= absK;
-                    }
+const PAGE_TITLES = { overview:'總覽', personal:'個人歸戶', profit:'淨收益', trades:'交易明細' };
 
-                    if (sym && tx.sheetCurrentPrice > 0) priceMap[sym] = tx.sheetCurrentPrice;
-                    if (sym && holdings[sym] && holdings[sym].totalShares < 0.0001) {
-                        holdings[sym].totalShares = holdings[sym].totalCost = holdings[sym].csvTotalDiff = holdings[sym].csvMarketValueR = 0;
-                    }
-                });
+// ── CSV PARSER ──────────────────────────────────────────────────────
+function parseCSV(text) {
+  const rows=[]; let cur='', inQ=false, row=[];
+  for (let i=0; i<text.length; i++) {
+    const c=text[i];
+    if (c==='"'){inQ=!inQ;continue}
+    if (c===','&&!inQ){row.push(cur.trim());cur='';continue}
+    if ((c==='\n'||c==='\r')&&!inQ){
+      if(cur.trim()||row.length){row.push(cur.trim());rows.push(row)}
+      cur='';row=[];
+      if(c==='\r'&&text[i+1]==='\n')i++;
+      continue;
+    }
+    cur+=c;
+  }
+  if(cur||row.length){row.push(cur.trim());rows.push(row)}
+  return rows;
+}
 
-                if (dashboardView === 'personal' && selectedPersona === 'xu') cashBalance = 0;
-                if (dashboardView === 'total') {
-                    // 若為總投資，扣除掉父的現金結餘(因為合併計算時旭沒現金)
-                    // 為了簡化，總覽的現金等於父的現金結餘。
-                    const xuTx = transactions.filter(t => (t.note || '').toLowerCase().includes('旭'));
-                    let xuCash = 0;
-                    xuTx.forEach(tx => {
-                        const side = (tx.side || '').toLowerCase();
-                        if(side.includes('存')||side.includes('入')||side.includes('賣')||side.includes('息')) xuCash += Math.abs(tx.totalK);
-                        else if(side.includes('買')) xuCash -= Math.abs(tx.totalK);
-                    });
-                    cashBalance -= xuCash; // 把旭的虛擬現金扣除
-                }
+// ── UTILS ───────────────────────────────────────────────────────────
+const n = s => { if(s==null)return 0; const v=parseFloat(String(s).replace(/,/g,'').replace(/%/g,'').trim()); return isNaN(v)?0:v; };
+const fmt = (v,d=0) => (v==null||isNaN(v)) ? '—' : v.toLocaleString('zh-TW',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtPct = v => { const x=n(v); return (x>=0?'+':'')+x.toFixed(2)+'%'; };
+const fmtPnl = v => { const x=n(v); return (x>=0?'+':'')+fmt(x); };
+const cls = v => n(v)>=0?'pos':'neg';
+const setSt = msg => { const e=document.getElementById('ld-st'); if(e) e.textContent=msg; };
+/*
+async function fetchCSV(url, label) {
+  setSt(`載入 ${label}...`);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status} (${label})`);
+  return parseCSV(await r.text());
+}
+*/
+// 升級版：帶有自動重試與防止瀏覽器快取的 fetchCSV
+async function fetchCSV(url, label, maxRetries = 3) {
+  for (let i = 0; i <= maxRetries; i++) {
+    setSt(`載入 ${label}... ${i > 0 ? `(等待即時股價，自動重試 ${i})` : ''}`);
+    
+    // 加入時間戳記 (cache buster)，強迫避開瀏覽器與 Google 的舊快取
+    const cacheBuster = url.includes('?') ? `&_t=${Date.now()}` : `?_t=${Date.now()}`;
+    const fetchUrl = url + cacheBuster;
 
-                let pMarketValue = 0, pCost = 0, pGainLoss = 0;
-                const portfolioArray = Object.values(holdings).filter(h => h.totalShares > 0).map(h => {
-                    let mv = h.csvMarketValueR || ((priceMap[h.symbol] || 0) * h.totalShares);
-                    pMarketValue += mv; pCost += h.totalCost; pGainLoss += h.csvTotalDiff; 
-                    return { name: h.symbol, ...h, marketValue: mv, gainLoss: h.csvTotalDiff, gainLossPercent: h.totalCost > 0 ? (h.csvTotalDiff / h.totalCost) * 100 : 0 };
-                }).sort((a, b) => b.marketValue - a.marketValue);
+    const r = await fetch(fetchUrl, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`HTTP ${r.status} (${label})`);
+    
+    const text = await r.text();
 
-                const finalSummary = {
-                    totalMarketValue: pMarketValue, totalCost: pCost, totalGainLoss: pGainLoss, totalDeposits, cashBalance,
-                    totalReturnRate: pCost > 0 ? (pGainLoss / pCost) * 100 : 0
-                };
+    // 檢查 Google Sheets 是否還沒計算完 GOOGLEFINANCE
+    if (text.includes('#VALUE!') || text.includes('#N/A') || text.includes('Loading...')) {
+      if (i < maxRetries) {
+        console.warn(`[${label}] 包含未計算完成的資料，1.5秒後進行重試...`);
+        // 等待 1.5 秒再試
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        continue; // 進行下一次迴圈
+      } else {
+        console.warn(`[${label}] 已達最大重試次數，部分資料可能顯示為 0。`);
+      }
+    }
+    
+    // 若沒有錯誤，或已經達到最大重試次數，則解析並回傳
+    return parseCSV(text);
+  }
+}
+// ── PARSERS ─────────────────────────────────────────────────────────
 
-                // --- 2. 準備時間軸與密度圖資料 (Timeline & Activity) ---
-                let cumDepositTime = 0;
-                const monthlyData = {};
-                
-                sortedTx.forEach(tx => {
-                    if (!tx.date) return;
-                    const d = new Date(tx.date);
-                    if (isNaN(d.getTime())) return;
-                    // YYYY-MM 格式
-                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                    
-                    if (!monthlyData[monthKey]) {
-                        monthlyData[monthKey] = { month: monthKey, deposit: cumDepositTime, tradeVol: 0 };
-                    }
-                    
-                    const side = (tx.side || '').toLowerCase();
-                    const absK = Math.abs(tx.totalK);
-                    
-                    if (side.includes('存') || side.includes('入')) {
-                        cumDepositTime += absK;
-                    } else if (side.includes('買') || side.includes('賣')) {
-                        monthlyData[monthKey].tradeVol += absK;
-                    }
-                    monthlyData[monthKey].deposit = cumDepositTime;
-                });
-                
-                const timelineArray = Object.values(monthlyData).sort((a,b) => a.month.localeCompare(b.month));
+// 摘要：Row1=標題(index0), Row2=數值(index1)
+// A=目前市值, B=本金成本, C=整體報酬率%, D=未實現收益, E=存入金額, F=可使用餘額
+// 注意：若 Google Sheets 公式欄位 CSV 輸出為空，嘗試找第一個有數字的非空列
+function parseSummary(rows) {
+  // 找含有數值的摘要列（通常是 index 1，但若空白則往後找，最多掃 index 1~4）
+  let r = [];
+  for (let i = 1; i <= Math.min(4, rows.length - 1); i++) {
+    const candidate = rows[i] || [];
+    // 需要 A 欄（市值）有非零數值才算找到
+    if (candidate.length >= 6 && n(candidate[0]) !== 0) {
+      r = candidate;
+      break;
+    }
+    // 若 A 為空但 B 有值，也接受（可能市值公式有特殊格式）
+    if (candidate.length >= 6 && n(candidate[1]) !== 0 && r.length === 0) {
+      r = candidate;
+    }
+  }
+  // 最後 fallback：直接取 index 1
+  if (!r.length) r = rows[1] || [];
+  return {
+    mv:        n(r[0]),
+    cost:      n(r[1]),
+    rate:      n(r[2]),
+    unrealized:n(r[3]),
+    deposited: n(r[4]),
+    available: n(r[5]),
+    _raw: r, // 保留原始值供 debug
+  };
+}
 
-                // --- 3. 準備商品損益排行圖資料 (地雷王) ---
-                const pnlArray = [...portfolioArray]
-                    .sort((a, b) => b.gainLoss - a.gainLoss) // 由盈到虧
-                    .map(i => ({ name: i.symbol, gainLoss: Math.round(i.gainLoss), fill: i.gainLoss > 0 ? 'var(--success)' : 'var(--danger)' }));
+// ── DEBUG ────────────────────────────────────────────────────────────
+function buildDebugPanel() {
+  const sheets = [
+    { label: '父的交易總攬', rows: ST.raw.dad },
+    { label: '旭的交易總攬', rows: ST.raw.son },
+  ];
+  const colLabels = ['A(市值)','B(本金成本)','C(報酬率)','D(未實現損益)','E(存入金額)','F(可使用餘額)'];
 
-                return { portfolio: portfolioArray, summary: finalSummary, timelineData: timelineArray, pnlChartData: pnlArray };
+  let html = '';
+  sheets.forEach(({ label, rows }) => {
+    html += `<div class="dbg-sheet"><h4>📄 ${label}</h4>`;
+    html += `<div class="dbg-row"><span class="dbg-label">總列數：</span><span class="dbg-cell">${rows.length}</span></div>`;
+    // Show rows 0~5 raw content
+    for (let i = 0; i <= Math.min(5, rows.length - 1); i++) {
+      const r = rows[i] || [];
+      const preview = r.slice(0, 8).map((v, j) => {
+        const isZero = i > 0 && j < 6 && n(v) === 0 && v !== '';
+        const isEmpty = v === '' || v === undefined;
+        const cls = isEmpty ? 'zero' : (i > 0 && j < 6 && n(v) !== 0 ? 'ok' : '');
+        return `<span class="dbg-cell ${cls}" title="${colLabels[j]||'col'+j}">${isEmpty ? '(空)' : v}</span>`;
+      }).join('');
+      html += `<div class="dbg-row"><span class="dbg-label">Row ${i+1}:</span>${preview}</div>`;
+    }
+    // Show parseSummary result
+    const s = parseSummary(rows);
+    html += `<div class="dbg-row" style="margin-top:6px"><span class="dbg-label">解析結果：</span>`;
+    html += `<span class="dbg-cell ${s.mv!==0?'ok':'zero'}">市值=${s.mv}</span>`;
+    html += `<span class="dbg-cell ${s.cost!==0?'ok':'zero'}">成本=${s.cost}</span>`;
+    html += `<span class="dbg-cell ${s.rate!==0?'ok':'zero'}">報酬率=${s.rate}%</span>`;
+    html += `<span class="dbg-cell ${s.unrealized!==0?'ok':'zero'}">未實現=${s.unrealized}</span>`;
+    html += `<span class="dbg-cell ${s.deposited!==0?'ok':'zero'}">存入=${s.deposited}</span>`;
+    html += `<span class="dbg-cell ${s.available!==0?'ok':'zero'}">餘額=${s.available}</span>`;
+    html += `</div></div>`;
+  });
 
-            }, [transactions, dashboardView, selectedPersona]);
+  document.getElementById('debug-content').innerHTML = html;
+}
 
-            // 表格篩選
-            const filteredTransactions = useMemo(() => {
-                let filtered = transactions.filter(t => {
-                    const search = searchTerm.toLowerCase();
-                    const matchesSearch = (t.symbol||'').toLowerCase().includes(search) || (t.side||'').includes(search) || (t.date||'').includes(search) || (t.note||'').toLowerCase().includes(search);
-                    if (!matchesSearch) return false;
-                    
-                    const side = (t.side || '').toLowerCase();
-                    if (filterType === 'trade') {
-                        if (!(side.includes('買') || side.includes('賣'))) return false;
-                        if (subFilterType === 'fu' && !(t.note||'').includes('父')) return false;
-                        if (subFilterType === 'xu' && !(t.note||'').includes('旭')) return false;
-                    } else if (filterType === 'deposit') {
-                        if (!(side.includes('存') || side.includes('入'))) return false;
-                    }
-                    return true;
-                });
+function toggleDebug() {
+  const panel = document.getElementById('debug-panel');
+  const isHidden = panel.style.display === 'none';
+  panel.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) buildDebugPanel();
+}
 
-                filtered.sort((a, b) => {
-                    if (sortOrder === 'date-desc') return new Date(b.date) - new Date(a.date);
-                    if (sortOrder === 'date-asc') return new Date(a.date) - new Date(b.date);
-                    return 0;
-                });
-                return filtered;
-            }, [transactions, searchTerm, filterType, subFilterType, sortOrder]);
+// ── RELOAD ───────────────────────────────────────────────────────────
+async function reloadData() {
+  const btn = document.getElementById('reload-btn');
+  btn.classList.add('spinning');
+  btn.disabled = true;
+  try {
+    const [t, d, s, net] = await Promise.all([
+      fetchCSV(CSV_URLS.trades, '交易明細'),
+      fetchCSV(CSV_URLS.dad,    '父的總攬'),
+      fetchCSV(CSV_URLS.son,    '旭的總攬'),
+      fetchCSV(CSV_URLS.net,    '淨收益'),
+    ]);
+    ST.raw.trades=t; ST.raw.dad=d; ST.raw.son=s; ST.raw.net=net;
+    renderOverviewKPI();
+    buildCharts();
+    renderTradeTable();
+    renderPersonalKPI(ST.person.personal);
+    renderHoldTable(ST.person.personal);
+    renderProfitTable(ST.person.profit);
+    document.getElementById('tb-time').textContent =
+      '更新 ' + new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+    // Refresh debug panel if open
+    if (document.getElementById('debug-panel').style.display !== 'none') buildDebugPanel();
+  } catch(err) {
+    alert('重載失敗：' + err.message);
+  } finally {
+    btn.classList.remove('spinning');
+    btn.disabled = false;
+  }
+}
 
-            const currentRealizedData = realizedData[selectedPersona] || [];
-            const realizedTotals = useMemo(() => {
-                const totals = currentRealizedData.reduce((acc, curr) => {
-                    acc.netSell += curr.netSell; acc.cost += curr.cost; acc.realizedPnL += curr.realizedPnL; return acc;
-                }, { netSell: 0, cost: 0, realizedPnL: 0 });
-                return { ...totals, returnRate: totals.cost > 0 ? (totals.realizedPnL / totals.cost) * 100 : 0 };
-            }, [currentRealizedData]);
+// 持倉 Row7+(index6+), J(9)=還在持有
+function parseHold(rows) {
+  if (rows.length < 7) return [];
+  return rows.slice(6).filter(r => r.length > 9 && (r[9]||'').includes('還在持有'));
+}
 
+// 淨收益: 父 off=0, 旭 off=9
+function parseNet(rows, person) {
+  if (rows.length < 2) return [];
+  const off = person==='dad' ? 0 : 9;
+  return rows.slice(1)
+    .filter(r => (r[off]||'').trim())
+    .map(r => ({
+      code:   (r[off]  ||'').trim(),
+      name:   (r[off+1]||'').trim(),
+      shares: n(r[off+2]),
+      pnl:    n(r[off+6]),
+      rate:   n(r[off+7]),
+    }));
+}
 
-            return (
-                <div className="app-container">
-                    {/* 提示對話框 */}
-                    {helpModal && (
-                        <div className="modal-backdrop" onClick={() => setHelpModal(null)}>
-                            <div className="modal-content" onClick={e => e.stopPropagation()}>
-                                <button className="close-btn" onClick={() => setHelpModal(null)}><Icon path={ICONS.close}/></button>
-                                <h3 style={{marginTop:0, display:'flex', alignItems:'center', gap:'10px', fontSize: '1.25rem'}}>
-                                    <span style={{color: 'var(--accent)'}}><Icon path={ICONS.info}/></span> {helpModal.title}
-                                </h3>
-                                <div style={{whiteSpace: 'pre-line', lineHeight: '1.7', fontSize: '0.95rem', color: 'var(--text-muted)'}}>
-                                    {helpModal.content}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+// ── KPI CARD ────────────────────────────────────────────────────────
+function kpiCard(label, value, vcls='', dotColor='') {
+  return `<div class="kc">
+    <div class="kc-lbl"><span class="kc-dot" style="${dotColor?'background:'+dotColor:''}"></span>${label}</div>
+    <div class="kc-val ${vcls}">${value}</div>
+  </div>`;
+}
 
-                    {/* Navbar */}
-                    <nav className="navbar animate-float">
-                        <div className="brand">
-                            <span style={{ background: 'linear-gradient(135deg, var(--accent), #8b5cf6)', borderRadius: '10px', padding: '6px', display:'flex', color:'white', boxShadow: '0 2px 10px rgba(99,102,241,0.4)' }}>
-                                <Icon path={ICONS.chart} size={20}/>
-                            </span>
-                            TradeTracker
-                        </div>
-                        <div className="nav-buttons">
-                            <button className={`btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}><Icon path={ICONS.dashboard}/> 總覽</button>
-                            <button className={`btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}><Icon path={ICONS.list}/> 明細</button>
-                            <button className={`btn ${activeTab === 'import' ? 'active' : ''}`} onClick={() => setActiveTab('import')}><Icon path={ICONS.upload}/> 來源</button>
-                        </div>
-                    </nav>
+// ── RENDER: 總覽 KPIs ────────────────────────────────────────────────
+function renderOverviewKPI() {
+  const d = parseSummary(ST.raw.dad);
+  const s = parseSummary(ST.raw.son);
+  // 加總 A2+A2, B2+B2, C2+C2, D2+D2, E2+E2, F2+F2
+  const mv  = d.mv  + s.mv;
+  const cost= d.cost+ s.cost;
+  const rate= d.rate+ s.rate;          // C2 整體報酬率加總
+  const unr = d.unrealized+s.unrealized; // D2 未實現收益加總
+  const dep = d.deposited +s.deposited;  // E2 存入金額加總
+  const avl = d.available +s.available;  // F2 可使用餘額加總
 
-                    <main className="container">
-                        {error && (
-                            <div className="animate-float" style={{background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--danger)', color: '#fda4af', padding: '1rem 1.5rem', borderRadius: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(10px)'}}>
-                                <div><strong style={{display: 'block', marginBottom: '0.25rem'}}>讀取失敗:</strong> <span style={{fontSize: '0.9rem'}}>{error}</span></div>
-                                <button onClick={() => loadAllData(true)} className="btn btn-primary" style={{fontSize: '0.8rem', padding: '0.5rem 1rem'}}>嘗試救援</button>
-                            </div>
-                        )}
+  document.getElementById('kpi-overview').innerHTML = [
+    kpiCard('目前總市值',   '$ '+fmt(mv),       '',        '#6c63ff'),
+    kpiCard('累積本金成本', '$ '+fmt(cost),      '',        '#8b5cf6'),
+    kpiCard('未實現損益',   fmtPnl(unr), cls(unr), unr>=0?'#22c55e':'#f43f5e'),
+    kpiCard('整體報酬率',   fmtPct(rate),cls(rate),rate>=0?'#22c55e':'#f43f5e'),
+    kpiCard('存入金額',     '$ '+fmt(dep),       '',        '#f59e0b'),
+    kpiCard('可使用餘額',   '$ '+fmt(avl),       '',        '#06b6d4'),
+  ].join('');
+}
 
-                        {activeTab === 'dashboard' && (
-                            <div className="animate-float">
-                                <div style={{textAlign: 'center', marginBottom: '1.5rem'}}>
-                                    <div className="toggle-group">
-                                        <button className={`toggle-btn ${dashboardView === 'total' ? 'active' : ''}`} onClick={() => setDashboardView('total')}><Icon path={ICONS.briefcase}/> 總投資</button>
-                                        <button className={`toggle-btn ${dashboardView === 'personal' ? 'active' : ''}`} onClick={() => { setDashboardView('personal'); if(selectedPersona === 'all') setSelectedPersona('fu'); }}><Icon path={ICONS.users}/> 個人歸戶</button>
-                                        <button className={`toggle-btn ${dashboardView === 'realized' ? 'active' : ''}`} onClick={() => { setDashboardView('realized'); if(selectedPersona === 'all') setSelectedPersona('fu'); }}><Icon path={ICONS.money}/> 淨收益</button>
-                                    </div>
-                                    {(dashboardView === 'personal' || dashboardView === 'realized') && (
-                                        <div className="persona-tabs">
-                                            {['fu', 'xu'].map(p => (
-                                                <button key={p} className={`persona-btn ${selectedPersona === p ? 'active' : ''}`} onClick={() => setSelectedPersona(p)}>
-                                                    {p === 'fu' ? '父 (Main)' : '旭 (Sub)'}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
+// ── RENDER: 個人歸戶 KPIs ────────────────────────────────────────────
+function renderPersonalKPI(person) {
+  const d = parseSummary(person==='dad' ? ST.raw.dad : ST.raw.son);
+  document.getElementById('kpi-personal').innerHTML = [
+    kpiCard('目前總市值',   '$ '+fmt(d.mv),           '',            '#6c63ff'),
+    kpiCard('本金成本',     '$ '+fmt(d.cost),          '',            '#8b5cf6'),
+    kpiCard('未實現損益',   fmtPnl(d.unrealized), cls(d.unrealized), d.unrealized>=0?'#22c55e':'#f43f5e'),
+    kpiCard('整體報酬率',   fmtPct(d.rate),       cls(d.rate),       d.rate>=0?'#22c55e':'#f43f5e'),
+    kpiCard('存入金額',     '$ '+fmt(d.deposited),     '',            '#f59e0b'),
+    kpiCard('可使用餘額',   '$ '+fmt(d.available),     '',            '#06b6d4'),
+  ].join('');
+}
 
-                                {dashboardView !== 'realized' && (
-                                    <div className="dashboard-grid">
-                                        <SummaryCard delay="delay-1" title="目前總市值" value={Math.round(summary.totalMarketValue).toLocaleString()} icon={ICONS.money} 
-                                            onClick={() => setHelpModal({title: '目前市值', content: '從 Google Sheet 擷取最新的市值加總。'})}/>
-                                        <SummaryCard delay="delay-2" title="累積本金成本" value={Math.round(summary.totalCost).toLocaleString()} icon={ICONS.upload} 
-                                            onClick={() => setHelpModal({title: '累積本金成本', content: '持有庫存的歷史買入成本總和。'})}/>
-                                        <SummaryCard delay="delay-3" title="未實現損益" value={Math.round(summary.totalGainLoss).toLocaleString()} icon={ICONS.trendUp} 
-                                            color={summary.totalGainLoss <= 0 ? 'var(--danger)' : 'var(--success)'}
-                                            onClick={() => setHelpModal({title: '未實現損益', content: '目前持股帳面上的未實現損益 (P欄總和)。'})}/>
-                                        <SummaryCard delay="delay-4" title="整體報酬率" value={`${summary.totalReturnRate.toFixed(2)}%`} icon={ICONS.chart}
-                                            color={summary.totalReturnRate <= 0 ? 'var(--danger)' : 'var(--success)'}
-                                            onClick={() => setHelpModal({title: '整體報酬率', content: '(未實現損益 ÷ 累積本金成本) × 100%'})}/>
-                                    </div>
-                                )}
+// ── RENDER: 持倉表 ────────────────────────────────────────────────────
+function renderHoldTable(person) {
+  const rows = parseHold(person==='dad' ? ST.raw.dad : ST.raw.son);
+  const tbody = document.querySelector('#tbl-hold tbody');
+  if (!rows.length) { tbody.innerHTML=`<tr><td colspan="6" class="empty">無持倉資料</td></tr>`; return; }
+  tbody.innerHTML = rows.map(r => {
+    const code=(r[0]||'').trim(), name=(r[1]||'').trim();
+    const qty=n(r[2]), costPos=n(r[4]);
+    const avg = qty>0 ? costPos/qty : 0;
+    const mv=n(r[6]), pnl=n(r[7]), rate=n(r[8]);
+    return `<tr>
+      <td>${name}<br><span class="code-tag">${code}</span></td>
+      <td>${fmt(qty)}</td>
+      <td>${fmt(avg,2)}</td>
+      <td>${fmt(mv)}</td>
+      <td class="${cls(pnl)}">${fmtPnl(pnl)}</td>
+      <td class="${cls(rate)}">${fmtPct(rate)}</td>
+    </tr>`;
+  }).join('');
+}
 
-                                {dashboardView === 'personal' && portfolio.length > 0 && (
-                                    <div className="card animate-float delay-2" style={{marginTop: '2rem', padding: '0', overflow: 'hidden'}}>
-                                        <div style={{padding: '1.25rem 1.5rem', display:'flex', alignItems:'center', gap:'10px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-color)'}}>
-                                            <Icon path={ICONS.list} className="text-indigo"/> <strong style={{fontSize: '1.05rem'}}>持股現狀明細</strong>
-                                        </div>
-                                        <div className="table-container" style={{border: 'none', borderRadius: '0', background: 'transparent', backdropFilter:'none'}}>
-                                            <table>
-                                                <thead>
-                                                    <tr>
-                                                        <th>代號</th>
-                                                        <th className="text-right">股數</th>
-                                                        <th className="text-right">總成本</th>
-                                                        <th className="text-right">市值</th>
-                                                        <th className="text-right">未實現損益</th>
-                                                        <th className="text-right">報酬率</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {portfolio.map((item, idx) => (
-                                                        <tr key={idx}>
-                                                            <td style={{fontWeight:'700', color:'white'}}>{item.symbol}</td>
-                                                            <td className="text-right font-mono" style={{color: '#d4d4d8'}}>{item.totalShares.toLocaleString()}</td>
-                                                            <td className="text-right font-mono" style={{color: '#a1a1aa'}}>{Math.round(item.totalCost).toLocaleString()}</td>
-                                                            <td className="text-right font-mono" style={{color: '#e4e4e7'}}>{Math.round(item.marketValue).toLocaleString()}</td>
-                                                            <td className={`text-right font-bold font-mono ${item.gainLoss <= 0 ? 'text-red' : 'text-green'}`}>{Math.round(item.gainLoss).toLocaleString()}</td>
-                                                            <td className={`text-right font-bold ${item.gainLossPercent <= 0 ? 'text-red' : 'text-green'}`}>{item.gainLossPercent.toFixed(2)}%</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                )}
+// ── RENDER: 淨收益表 ──────────────────────────────────────────────────
+function renderProfitTable(person) {
+  const rows = parseNet(ST.raw.net, person);
+  const tbody = document.querySelector('#tbl-profit tbody');
+  if (!rows.length) { tbody.innerHTML=`<tr><td colspan="5" class="empty">無資料</td></tr>`; return; }
+  let ts=0, tp=0;
+  tbody.innerHTML = rows.map(r => {
+    ts+=r.shares; tp+=r.pnl;
+    return `<tr>
+      <td><span class="code-tag" style="font-size:11px">${r.code}</span></td>
+      <td>${r.name}</td>
+      <td>${fmt(r.shares)}</td>
+      <td class="${cls(r.pnl)}">${fmtPnl(r.pnl)}</td>
+      <td class="${cls(r.rate)}">${fmtPct(r.rate)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('p-shares').textContent = fmt(ts);
+  const pEl = document.getElementById('p-pnl');
+  pEl.textContent = fmtPnl(tp); pEl.className = cls(tp);
+  document.getElementById('p-rate').textContent = '—';
+}
 
-                                {dashboardView === 'realized' && (
-                                    <div className="card animate-float" style={{marginTop: '1.5rem', padding: '0', overflow: 'hidden'}}>
-                                        <div style={{padding: '1.25rem 1.5rem', display:'flex', alignItems:'center', gap:'10px', background: 'rgba(16, 185, 129, 0.05)', borderBottom: '1px solid rgba(16, 185, 129, 0.2)'}}>
-                                            <Icon path={ICONS.money} className="text-green"/> <strong style={{fontSize: '1.05rem', color: 'var(--success)'}}>已實現損益 (淨收益)</strong>
-                                        </div>
-                                        <div className="table-container" style={{border: 'none', borderRadius: '0', background: 'transparent', backdropFilter:'none'}}>
-                                            <table>
-                                                <thead>
-                                                    <tr>
-                                                        <th>商品</th>
-                                                        <th className="text-right">賣出股數</th>
-                                                        <th className="text-right">單位買價</th>
-                                                        <th className="text-right">賣出淨額</th>
-                                                        <th className="text-right">賣出成本</th>
-                                                        <th className="text-right">已實現損益</th>
-                                                        <th className="text-right">報酬率</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {currentRealizedData.map((item, idx) => (
-                                                        <tr key={idx}>
-                                                            <td style={{fontWeight:'700', color:'white'}}>{item.symbol} <span style={{fontSize:'0.75rem', color:'#a1a1aa', marginLeft:'4px', fontWeight:'normal'}}>{item.name}</span></td>
-                                                            <td className="text-right font-mono" style={{color: '#a1a1aa'}}>{item.shares.toLocaleString()}</td>
-                                                            <td className="text-right font-mono" style={{color: '#a1a1aa'}}>{item.avgBuyPrice.toLocaleString()}</td>
-                                                            <td className="text-right font-mono" style={{color: 'white'}}>{item.netSell.toLocaleString()}</td>
-                                                            <td className="text-right font-mono" style={{color: '#a1a1aa'}}>{item.cost.toLocaleString()}</td>
-                                                            <td className={`text-right font-bold font-mono ${item.realizedPnL <= 0 ? 'text-red' : 'text-green'}`}>{item.realizedPnL.toLocaleString()}</td>
-                                                            <td className={`text-right font-bold ${parseFloat(item.returnRate) <= 0 ? 'text-red' : 'text-green'}`}>{item.returnRate}</td>
-                                                        </tr>
-                                                    ))}
-                                                    <tr style={{background: 'rgba(16, 185, 129, 0.05)', fontWeight: '700', borderTop: '2px solid rgba(255,255,255,0.1)'}}>
-                                                        <td style={{color: 'white'}}>總計結算</td>
-                                                        <td colSpan="2"></td>
-                                                        <td className="text-right font-mono">{Math.round(realizedTotals.netSell).toLocaleString()}</td>
-                                                        <td className="text-right font-mono">{Math.round(realizedTotals.cost).toLocaleString()}</td>
-                                                        <td className={`text-right font-bold font-mono ${realizedTotals.realizedPnL <= 0 ? 'text-red' : 'text-green'}`}>{Math.round(realizedTotals.realizedPnL).toLocaleString()}</td>
-                                                        <td className={`text-right font-bold ${realizedTotals.returnRate <= 0 ? 'text-red' : 'text-green'}`}>{realizedTotals.returnRate.toFixed(2)}%</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                )}
+// ── RENDER: 交易明細 ──────────────────────────────────────────────────
+function renderTradeTable() {
+  const rows = ST.raw.trades;
+  if (rows.length < 2) return;
+  const tbody = document.querySelector('#tbl-trades tbody');
+  tbody.innerHTML = rows.slice(1).filter(r => r.some(c=>c)).map(r => {
+    const name=(r[1]||'').trim();   // B 商品名稱
+    const date=(r[2]||'').trim();   // C 日期
+    const qty=n(r[3]);              // D 股數
+    const px=n(r[4]);               // E 單價
+    const note=(r[11]||'').trim();  // L 備註
+    const bs=(r[12]||'').trim();    // M 買/賣
+    const isBuy = bs.includes('買');
+    const owner = note.includes('旭')?'旭':note.includes('父')?'父':'—';
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:11px">${date}</td>
+      <td>${name}</td>
+      <td><span class="bs ${isBuy?'buy':'sell'}">${bs||'—'}</span></td>
+      <td>${fmt(qty)}</td>
+      <td>${fmt(px,2)}</td>
+      <td style="color:var(--t3)">${owner}</td>
+    </tr>`;
+  }).join('');
+}
 
-                                {dashboardView !== 'realized' && (
-                                    <div className="charts-grid animate-float delay-3">
-                                        {/* 1. 累積投入資金曲線 */}
-                                        <div className="card chart-container chart-full">
-                                            <h4 className="chart-title"><Icon path={ICONS.trendUp} className="text-indigo"/> 累積投入資金護城河</h4>
-                                            <div style={{flex: 1, minHeight: 0}}>
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <AreaChart data={timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                                        <defs>
-                                                            <linearGradient id="colorDeposit" x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="5%" stopColor="#818cf8" stopOpacity={0.6}/>
-                                                                <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
-                                                            </linearGradient>
-                                                        </defs>
-                                                        <XAxis dataKey="month" stroke="#71717a" tick={{fontSize: 12}} dy={10} minTickGap={30}/>
-                                                        <YAxis stroke="#71717a" tick={{fontSize: 12}} tickFormatter={(val) => `$${(val/1000).toFixed(0)}k`} width={65}/>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                                        <Tooltip content={<CustomTooltip />} />
-                                                        <Area type="monotone" dataKey="deposit" name="累積存入資金" stroke="#818cf8" strokeWidth={3} fillOpacity={1} fill="url(#colorDeposit)" />
-                                                    </AreaChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </div>
+// ── CHARTS ────────────────────────────────────────────────────────────
+const CD = {
+  responsive:true, maintainAspectRatio:true,
+  animation:{duration:650,easing:'easeOutCubic'},
+  plugins:{legend:{display:false},tooltip:{
+    backgroundColor:'#1a1e2a',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,
+    titleColor:'#f0f2f8',bodyColor:'#9098b4',padding:10,
+    titleFont:{family:'JetBrains Mono',size:11},bodyFont:{family:'JetBrains Mono',size:11},
+  }},
+  scales:{
+    x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#5a6180',font:{size:10,family:'JetBrains Mono'},maxRotation:45}},
+    y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#5a6180',font:{size:10,family:'JetBrains Mono'}}},
+  }
+};
 
-                                        {/* 2. 商品損益排行榜 (地雷王 vs 獲利王) */}
-                                        <div className="card chart-container">
-                                            <h4 className="chart-title"><Icon path={ICONS.chart} className="text-green"/> 個股損益排行榜</h4>
-                                            <div style={{flex: 1, minHeight: 0}}>
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <BarChart data={pnlChartData} layout="vertical" margin={{ left: 10, right: 20, top:0, bottom:0 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false}/>
-                                                        <XAxis type="number" stroke="#71717a" tick={{fontSize: 12}} tickFormatter={(val) => `$${val/1000}k`} />
-                                                        <YAxis dataKey="name" type="category" stroke="#d4d4d8" width={60} tick={{fontSize: 12, fontWeight: 600}} />
-                                                        <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} content={<CustomTooltip />} />
-                                                        <ReferenceLine x={0} stroke="rgba(255,255,255,0.2)" strokeWidth={2} />
-                                                        <Bar dataKey="gainLoss" name="未實現損益" radius={[0, 4, 4, 0]}>
-                                                            {pnlChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
-                                                        </Bar>
-                                                    </BarChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </div>
+function buildCharts() {
+  // ── Area: 累積投入資金 ──
+  const mMap={};
+  ST.raw.trades.slice(1).forEach(r => {
+    const date=(r[2]||'').trim(), bs=(r[12]||'').trim();
+    if (!date||!bs.includes('買')) return;
+    const parts=date.split('/');
+    if (parts.length<2) return;
+    const mon=parts[0]+'-'+parts[1].padStart(2,'0');
+    mMap[mon]=(mMap[mon]||0)+n(r[3])*n(r[4]);
+  });
+  const months=Object.keys(mMap).sort();
+  let cum=0;
+  const cumData=months.map(m=>{cum+=mMap[m];return cum});
 
-                                        {/* 3. 投資時間軸與交易密度 */}
-                                        <div className="card chart-container">
-                                            <h4 className="chart-title"><Icon path={ICONS.activity} className="text-warning"/> 交易活躍度 (買賣總額)</h4>
-                                            <div style={{flex: 1, minHeight: 0}}>
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <BarChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false}/>
-                                                        <XAxis dataKey="month" stroke="#71717a" tick={{fontSize: 12}} dy={10} />
-                                                        <YAxis stroke="#71717a" tick={{fontSize: 12}} tickFormatter={(val) => `$${(val/1000).toFixed(0)}k`} />
-                                                        <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} content={<CustomTooltip />} />
-                                                        <Bar dataKey="tradeVol" name="當月交易總量" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                                                    </BarChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+  const ctxA=document.getElementById('chart-area').getContext('2d');
+  const gA=ctxA.createLinearGradient(0,0,0,200);
+  gA.addColorStop(0,'rgba(108,99,255,0.28)');gA.addColorStop(1,'rgba(108,99,255,0)');
+  if (ST.charts.area) ST.charts.area.destroy();
+  ST.charts.area = new Chart(ctxA,{type:'line',data:{
+    labels:months.map(m=>m.replace(/^20/,'')),
+    datasets:[{data:cumData,fill:true,backgroundColor:gA,borderColor:'#6c63ff',borderWidth:2,
+      tension:0.4,pointRadius:3,pointBackgroundColor:'#6c63ff',pointBorderColor:'#13161e',pointBorderWidth:2}]
+  },options:{...CD}});
 
-                        {activeTab === 'transactions' && (
-                            <div className="card animate-float">
-                                <h3 style={{marginTop:0, marginBottom:'1.5rem', letterSpacing: '0.02em', fontSize: '1.25rem'}}>交易流水帳明細</h3>
-                                <div style={{display:'flex', gap:'0.75rem', marginBottom:'1.5rem', flexWrap:'wrap'}}>
-                                    <button className={`btn ${filterType === 'all' ? 'active' : ''}`} onClick={()=>{setFilterType('all'); setSubFilterType('all')}}>全部紀錄</button>
-                                    <button className={`btn ${filterType === 'trade' ? 'active' : ''}`} onClick={()=>setFilterType('trade')}>股票買賣</button>
-                                    <button className={`btn ${filterType === 'deposit' ? 'active' : ''}`} onClick={()=>{setFilterType('deposit'); setSubFilterType('all')}}>資金存出入</button>
-                                    
-                                    {filterType === 'trade' && (
-                                        <div style={{display:'flex', gap:'0.5rem', marginLeft:'auto', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '0.75rem'}}>
-                                            {['all', 'fu', 'xu'].map(f => (
-                                                <button key={f} className={`btn ${subFilterType === f ? 'btn-primary' : ''}`} style={{padding:'0.4rem 1.2rem', fontSize:'0.8rem', borderRadius: '0.5rem'}} onClick={()=>setSubFilterType(f)}>
-                                                    {f === 'all' ? '全部人員' : f === 'fu' ? '父' : '旭'}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="input-group" style={{marginBottom: '1.5rem'}}>
-                                    <input type="text" className="form-input" placeholder="搜尋股票代號、備註、日期..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                                    <span style={{position:'absolute', right:'15px', top:'12px', color: 'var(--text-muted)'}}><Icon path={ICONS.search}/></span>
-                                </div>
+  // ── Bar: 個股損益 Top5 ──
+  const allNet=[...parseNet(ST.raw.net,'dad'),...parseNet(ST.raw.net,'son')];
+  const sMap={};
+  allNet.forEach(r=>{if(!r.name&&!r.code)return;const k=r.name||r.code;sMap[k]=(sMap[k]||0)+r.pnl});
+  const sorted=Object.entries(sMap).filter(([,v])=>!isNaN(v)).sort((a,b)=>b[1]-a[1]);
+  const top5=[...sorted.slice(0,3),...sorted.slice(-2).reverse()].filter(Boolean);
+  const ctxS=document.getElementById('chart-stock').getContext('2d');
+  if (ST.charts.stock) ST.charts.stock.destroy();
+  ST.charts.stock = new Chart(ctxS,{type:'bar',data:{
+    labels:top5.map(([k])=>k.length>8?k.slice(0,8)+'…':k),
+    datasets:[{data:top5.map(([,v])=>v),backgroundColor:top5.map(([,v])=>v>=0?'rgba(34,197,94,.7)':'rgba(244,63,94,.7)'),borderRadius:5,borderWidth:0}]
+  },options:{...CD,indexAxis:'y',scales:{x:CD.scales.x,y:{...CD.scales.y,ticks:{...CD.scales.y.ticks,font:{size:11,family:'Noto Sans TC'}}}}}});
 
-                                <div className="table-container" style={{background: 'transparent', border: 'none', backdropFilter:'none'}}>
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>日期</th><th>類別</th><th>名稱</th><th className="text-right">股數</th>
-                                                <th className="text-right">單價</th><th className="text-right">實付金額</th>
-                                                <th className="text-right text-indigo">現價 (N)</th><th className="text-right">價差 (P)</th>
-                                                <th className="text-right">報酬率</th>
-                                                <th>備註</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredTransactions.map((tx, idx) => {
-                                                const side = (tx.side || '').toLowerCase();
-                                                let badgeClass = 'badge';
-                                                if (side.includes('買')) badgeClass += ' badge-buy';
-                                                else if (side.includes('賣')) badgeClass += ' badge-sell';
-                                                else if (side.includes('存') || side.includes('入')) badgeClass += ' badge-dep';
-                                                else if (side.includes('息')) badgeClass += ' badge-div';
-                                                
-                                                const isMoneyIn = side.includes('賣') || side.includes('息') || side.includes('存') || side.includes('入');
-                                                const diffColor = tx.totalDiff <= 0 ? 'text-red font-bold' : 'text-green font-bold';
-                                                const showReturn = side.includes('買') || side.includes('賣');
-                                                const returnRateVal = parseFloat(tx.returnRate) || 0;
-                                                const returnRateColor = returnRateVal <= 0 ? 'text-red font-bold' : (returnRateVal > 0 ? 'text-green font-bold' : 'text-muted');
+  // ── Bar: 月交易筆數 ──
+  const aMap={};
+  ST.raw.trades.slice(1).forEach(r=>{
+    const date=(r[2]||'').trim();if(!date)return;
+    const parts=date.split('/');if(parts.length<2)return;
+    const mon=parts[0]+'-'+parts[1].padStart(2,'0');
+    aMap[mon]=(aMap[mon]||0)+1;
+  });
+  const aMonths=Object.keys(aMap).sort();
+  const ctxM=document.getElementById('chart-month').getContext('2d');
+  if (ST.charts.month) ST.charts.month.destroy();
+  ST.charts.month = new Chart(ctxM,{type:'bar',data:{
+    labels:aMonths.map(m=>m.replace(/^20/,'')),
+    datasets:[{data:aMonths.map(m=>aMap[m]),backgroundColor:'rgba(108,99,255,0.6)',borderRadius:4,borderWidth:0}]
+  },options:{...CD}});
+}
 
-                                                return (
-                                                    <tr key={idx}>
-                                                        <td style={{color: '#a1a1aa'}}>{tx.date}</td>
-                                                        <td><span className={badgeClass}>{tx.side || '-'}</span></td>
-                                                        <td style={{fontWeight:'700', color:'white'}}>{tx.symbol || '-'}</td>
-                                                        <td className="text-right font-mono" style={{color: '#d4d4d8'}}>{tx.shares ? tx.shares.toLocaleString() : '-'}</td>
-                                                        <td className="text-right font-mono" style={{color: '#d4d4d8'}}>{tx.price ? tx.price.toLocaleString() : '-'}</td>
-                                                        <td className={`text-right font-bold font-mono ${isMoneyIn ? 'text-red' : 'text-green'}`}>{tx.totalPaid.toLocaleString()}</td>
-                                                        <td className="text-right text-indigo font-mono">{tx.sheetCurrentPrice || '-'}</td>
-                                                        <td className={`text-right font-mono ${diffColor}`}>{tx.totalDiff ? tx.totalDiff.toLocaleString() : '-'}</td>
-                                                        <td className={`text-right font-mono ${returnRateColor}`}>{showReturn && tx.returnRate ? tx.returnRate + '%' : '-'}</td>
-                                                        <td style={{fontSize:'0.8rem', color:'var(--text-muted)', maxWidth: '150px', textOverflow: 'ellipsis', overflow: 'hidden'}}>{tx.note}</td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
+// ── NAV ───────────────────────────────────────────────────────────────
+function goPage(id) {
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelector(`.sb-item[data-page="${id}"]`).classList.add('active');
+  document.getElementById('tb-title').textContent = PAGE_TITLES[id]||id;
+  if (id==='personal'){renderPersonalKPI(ST.person.personal);renderHoldTable(ST.person.personal)}
+  if (id==='profit') renderProfitTable(ST.person.profit);
+  document.getElementById('sb').classList.remove('open');
+  document.getElementById('sbo').classList.remove('open');
+}
 
-                        {activeTab === 'import' && (
-                            <div className="card animate-float" style={{maxWidth: '800px', margin: '0 auto', padding: '2.5rem'}}>
-                                <h2 style={{marginTop: 0, display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '0.02em'}}><Icon path={ICONS.upload} className="text-indigo"/> 連結資料庫</h2>
-                                <p style={{color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '2.5rem'}}>請將 Google Sheet 發佈為 CSV 格式，並貼上完整網址連結以同步數據。</p>
-                                
-                                <div style={{marginBottom: '2rem'}}>
-                                    <label style={{display:'block', marginBottom:'0.75rem', fontWeight: '600', color: '#e4e4e7'}}>主投資流水帳 (總表)</label>
-                                    <div style={{display:'flex', gap:'0.75rem'}}>
-                                        <input type="text" className="form-input" value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} />
-                                        <button className="btn btn-primary" style={{padding: '0 1.5rem'}} onClick={() => loadAllData()} disabled={loading}>
-                                            {loading ? <div className="spinner"></div> : '立刻同步'}
-                                        </button>
-                                    </div>
-                                </div>
-                                <div style={{marginBottom: '2.5rem'}}>
-                                    <label style={{display:'block', marginBottom:'0.75rem', fontWeight: '600', color: '#e4e4e7'}}>已實現損益表 (淨收益)</label>
-                                    <div style={{display:'flex', gap:'0.75rem'}}>
-                                        <input type="text" className="form-input" value={realizedSheetUrl} onChange={e => setRealizedSheetUrl(e.target.value)} />
-                                        <button className="btn btn-primary" style={{padding: '0 1.5rem'}} onClick={() => loadAllData()} disabled={loading}>
-                                            {loading ? <div className="spinner"></div> : '立刻同步'}
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div style={{background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.2)', padding: '1.5rem', borderRadius: '1rem'}}>
-                                    <strong style={{display: 'block', color: 'var(--accent)', marginBottom: '0.75rem', fontSize: '0.9rem'}}>📊 Google Sheet 報價公式參考：</strong>
-                                    <div style={{fontSize: '0.85rem', fontFamily: 'ui-monospace, monospace', color: '#a5b4fc', background:'rgba(0,0,0,0.3)', padding:'10px', borderRadius:'8px'}}>
-                                        =IF(M2="存入", "", IFERROR(GOOGLEFINANCE("TPE:"&A2), IFERROR(GOOGLEFINANCE(A2), "手動輸入")))
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </main>
-                </div>
-            );
-        };
+function toggleSB(){
+  document.getElementById('sb').classList.toggle('open');
+  document.getElementById('sbo').classList.toggle('open');
+}
 
-        const SummaryCard = ({ title, value, icon, color = 'white', onClick, delay = '' }) => (
-            <div className={`card summary-card animate-float ${delay}`} onClick={onClick}>
-                <div className="summary-header">
-                    <span className="summary-title">{title}</span>
-                    <span style={{color: 'rgba(255,255,255,0.15)', transition: 'color 0.2s'}} className="info-icon"><Icon path={ICONS.info} size={16}/></span>
-                </div>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end'}}>
-                    <div className="summary-value" style={{color}}>${value}</div>
-                    <div className="summary-icon-wrapper" style={{color: color === 'white' ? 'var(--text-muted)' : color}}>
-                        <Icon path={icon} size={28}/>
-                    </div>
-                </div>
-            </div>
-        );
+// ── WIRE UP ───────────────────────────────────────────────────────────
+document.querySelectorAll('.sb-item').forEach(b=>b.addEventListener('click',()=>goPage(b.dataset.page)));
+document.querySelectorAll('.psb').forEach(b=>b.addEventListener('click',()=>{
+  const ctx=b.dataset.ctx;
+  document.querySelectorAll(`.psb[data-ctx="${ctx}"]`).forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  ST.person[ctx]=b.dataset.person;
+  if(ctx==='personal'){renderPersonalKPI(b.dataset.person);renderHoldTable(b.dataset.person)}
+  if(ctx==='profit') renderProfitTable(b.dataset.person);
+}));
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+// ── INIT ──────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const [t, d, s, net] = await Promise.all([
+      fetchCSV(CSV_URLS.trades,'交易明細'),
+      fetchCSV(CSV_URLS.dad,  '父的總攬'),
+      fetchCSV(CSV_URLS.son,  '旭的總攬'),
+      fetchCSV(CSV_URLS.net,  '淨收益'),
+    ]);
+    ST.raw.trades=t; ST.raw.dad=d; ST.raw.son=s; ST.raw.net=net;
+    setSt('渲染介面...');
+
+    renderOverviewKPI();
+    buildCharts();
+    renderTradeTable();
+    renderPersonalKPI('dad');
+    renderHoldTable('dad');
+    renderProfitTable('dad');
+
+    document.getElementById('tb-time').textContent =
+      '更新 ' + new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+
+    setTimeout(()=>document.getElementById('ld').classList.add('done'), 350);
+
+  } catch(err) {
+    console.error(err);
+    setSt('⚠ 載入失敗：'+err.message);
+    setTimeout(()=>{
+      document.getElementById('ld').classList.add('done');
+      document.getElementById('page-overview').insertAdjacentHTML('afterbegin',
+        `<div class="err">⚠ 資料載入失敗，請確認 Google Sheets 已公開發布。<br>${err.message}</div>`);
+    }, 1600);
+  }
+}
+init();
+</script>
 </body>
 </html>
